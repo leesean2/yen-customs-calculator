@@ -1,14 +1,36 @@
 # 엔화 직구 · 여행 세금 계산기
 
-일본 직구 관부가세와 여행자 휴대품 세금을 실시간 환율로 계산하는 React(Vite) 앱.
+일본 직구 관부가세와 여행자 휴대품 세금을 실시간 환율로 계산하고, 일본(라쿠텐) vs 국내(네이버쇼핑) 가격을 비교하는 React(Vite) 앱.
 
 ## 실행
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173 (검색 API 제외한 화면만)
+vercel dev       # 검색 API(api/) 포함 로컬 실행
 npm run build    # dist/ 생성
 ```
+
+## 가격 비교 (일본 vs 국내)
+
+"가격 비교" 탭에서 라쿠텐·네이버쇼핑 검색 결과 또는 직접 입력한 가격으로,
+직구 최종가(상품가 환산 + 국제 배송비 + 관부가세)와 국내 구매가를 비교해
+어느 쪽이 이득인지 판정한다(차이 3% 미만은 "비슷함"). 아마존재팬은 공개 API가 없어 수동 입력.
+
+검색 API는 `api/`의 Vercel 서버리스 함수가 중계하며, 환경변수가 없으면 수동 입력 모드로 동작:
+
+| 환경변수 | 발급처 | 용도 |
+| --- | --- | --- |
+| `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | [developers.naver.com](https://developers.naver.com/apps/) → 애플리케이션 등록 → "검색" API 선택 | 네이버쇼핑 상품 검색 |
+| `RAKUTEN_APP_ID` | [webservice.rakuten.co.jp](https://webservice.rakuten.co.jp/) → 앱 ID 발급 | 라쿠텐 이치바 상품 검색 |
+
+```bash
+vercel env add NAVER_CLIENT_ID
+vercel env add NAVER_CLIENT_SECRET
+vercel env add RAKUTEN_APP_ID
+```
+
+설정 후 재배포하면 검색이 활성화된다.
 
 ## 환율 API
 

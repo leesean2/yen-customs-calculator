@@ -4,65 +4,15 @@ import {
   CATEGORIES,
   DUTY_FREE_LIMIT_USD,
   TRAVELER_LIMIT_USD,
-  LUXURY_SCT_BASE,
 } from "./data/categories.js";
+import { T, won, usd, NumField, Row } from "./ui.jsx";
+import { calcImportCost } from "./lib/customs.js";
+import CompareTab from "./CompareTab.jsx";
 
 /* ──────────────────────────────────────────────
    엔화 직구 · 여행 관부가세 계산기 (실시간 환율)
    기준: 2026-07 관세청 규정 (참고용 계산)
    ────────────────────────────────────────────── */
-
-const T = {
-  paper: "#F2F4F1",
-  card: "#FFFFFF",
-  ink: "#1C2B3A",
-  indigo: "#28527A",
-  indigoSoft: "#E8EEF4",
-  red: "#C13A32",
-  green: "#2E6B4F",
-  greenSoft: "#E9F2ED",
-  redSoft: "#FBEEEC",
-  muted: "#75818C",
-  line: "#DFE3DD",
-};
-
-const won = (n) =>
-  isNaN(n) ? "—" : Math.round(n).toLocaleString("ko-KR") + "원";
-const usd = (n) =>
-  isNaN(n) ? "—" : "$" + n.toLocaleString("en-US", { maximumFractionDigits: 2 });
-
-function NumField({ label, suffix, value, onChange, hint }) {
-  return (
-    <label style={{ display: "block", marginBottom: 14 }}>
-      <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.02em", color: T.indigo, marginBottom: 5 }}>
-        {label}
-      </span>
-      <span style={{ display: "flex", alignItems: "center", border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", padding: "0 12px" }}>
-        <input
-          type="number" inputMode="decimal" min="0" value={value}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ flex: 1, border: "none", outline: "none", background: "transparent", padding: "11px 0", fontSize: 17, fontWeight: 600, color: T.ink, fontVariantNumeric: "tabular-nums", width: "100%" }}
-        />
-        <span style={{ fontSize: 13, color: T.muted, fontWeight: 600, marginLeft: 8, whiteSpace: "nowrap" }}>{suffix}</span>
-      </span>
-      {hint && <span style={{ display: "block", fontSize: 11.5, color: T.muted, marginTop: 4 }}>{hint}</span>}
-    </label>
-  );
-}
-
-function Row({ label, value, strong, red, top }) {
-  return (
-    <div style={{
-      display: "flex", justifyContent: "space-between", alignItems: "baseline",
-      padding: strong ? "12px 0 2px" : "5px 0",
-      borderTop: top ? `1.5px solid ${T.ink}` : "none",
-      marginTop: top ? 8 : 0,
-    }}>
-      <span style={{ fontSize: strong ? 14.5 : 13.5, color: strong ? T.ink : T.muted, fontWeight: strong ? 700 : 500 }}>{label}</span>
-      <span style={{ fontSize: strong ? 21 : 14.5, fontWeight: strong ? 800 : 600, color: red ? T.red : T.ink, fontVariantNumeric: "tabular-nums" }}>{value}</span>
-    </div>
-  );
-}
 
 /* 인장(도장) 스타일 판정 표시 */
 function Stamp({ taxed }) {
@@ -177,29 +127,17 @@ export default function App() {
   const jr = parseFloat(jpyRate) || 0;
   const ur = parseFloat(usdRate) || 0;
 
-  const shop = useMemo(() => {
-    const cat = CATEGORIES.find((c) => c.id === catId);
-    const goodsJpy = (parseFloat(price) || 0) + (parseFloat(localShip) || 0);
-    const goodsKrw = goodsJpy * jr;
-    const goodsUsd = ur ? goodsKrw / ur : NaN;
-    const intl = parseFloat(intlShip) || 0;
-
-    const overLimit = ur ? goodsUsd > DUTY_FREE_LIMIT_USD : false;
-    const taxed = overLimit || !!cat.excluded;
-
-    let duty = 0, sct = 0, edu = 0, vat = 0, taxable = 0;
-    if (taxed) {
-      taxable = goodsKrw + intl;
-      duty = taxable * cat.duty;
-      if (cat.luxury && taxable + duty > LUXURY_SCT_BASE) {
-        sct = (taxable + duty - LUXURY_SCT_BASE) * 0.2;
-        edu = sct * 0.3;
-      }
-      vat = cat.vatExempt ? 0 : (taxable + duty + sct + edu) * 0.1;
-    }
-    const totalTax = duty + sct + edu + vat;
-    return { cat, goodsJpy, goodsKrw, goodsUsd, intl, overLimit, taxed, taxable, duty, sct, edu, vat, totalTax, final: goodsKrw + intl + totalTax };
-  }, [price, localShip, intlShip, catId, jr, ur]);
+  const shop = useMemo(
+    () => calcImportCost({
+      priceJpy: parseFloat(price) || 0,
+      localShipJpy: parseFloat(localShip) || 0,
+      intlShipKrw: parseFloat(intlShip) || 0,
+      cat: CATEGORIES.find((c) => c.id === catId),
+      jpyKrw: jr,
+      usdKrw: ur,
+    }),
+    [price, localShip, intlShip, catId, jr, ur]
+  );
 
   const travel = useMemo(() => {
     const totalKrw = (parseFloat(travelTotal) || 0) * jr;
@@ -235,7 +173,7 @@ export default function App() {
             엔화 직구 · 여행 세금 계산기
           </h1>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: T.muted, lineHeight: 1.5 }}>
-            일본 직구 관부가세와 여행자 휴대품 세금을 실시간 환율로 계산합니다. 2026년 7월 규정 기준, 참고용입니다.
+            일본 직구 관부가세와 여행자 휴대품 세금을 실시간 환율로 계산하고, 일본·국내 가격을 비교합니다. 2026년 7월 규정 기준, 참고용입니다.
           </p>
         </header>
 
@@ -261,7 +199,11 @@ export default function App() {
         <nav style={{ display: "flex", gap: 6, background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 12, padding: 5, marginBottom: 16 }}>
           {tabBtn("shop", "직구 계산기")}
           {tabBtn("travel", "여행자 휴대품")}
+          {tabBtn("compare", "가격 비교")}
         </nav>
+
+        {/* ── 가격 비교 탭 ── */}
+        {tab === "compare" && <CompareTab jpyKrw={jr} usdKrw={ur} />}
 
         {/* ── 직구 탭 ── */}
         {tab === "shop" && (
