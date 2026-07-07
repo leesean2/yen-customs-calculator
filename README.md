@@ -32,6 +32,23 @@ vercel env add RAKUTEN_APP_ID
 
 설정 후 재배포하면 검색이 활성화된다.
 
+## 환율 알림 · 이상 감지
+
+"환율 알림" 탭:
+
+- **목표 환율 알림** — 목표가(원/1엔)와 조건(이하/이상)을 설정하면 localStorage에 저장.
+  탭이 열려 있는 동안 10분마다 + 탭 복귀 시 환율을 재조회하고, 도달하면 앱 상단 배너와
+  브라우저 알림(권한 허용 시)을 1회 발송한다. 판정은 수동 입력값이 아닌 실시간 API 환율 기준.
+- **이상 감지** — 독립 소스 3곳(er-api, frankfurter/ECB, fawazahmed0 currency-api)의 JPY→KRW를
+  교차 검증해 중앙값 대비 편차를 표시. 최대 편차 1% 미만 정상 / 1~3% 주의 / 3% 이상 경고.
+  은행 앱에 표시된 환율을 직접 입력하면 시장 기준과 비교해 토스뱅크 '반값 엔화' 오류 같은
+  괴리(±3% 이상)를 경고한다. 로직: `src/lib/rateSources.js`, `src/hooks/useRateAlert.js`
+- **수출입은행 고시환율 자동 비교(선택)** — `KOREAEXIM_API_KEY` 환경변수 설정 시
+  `api/bank-rate.js`가 매매기준율을 받아 비교 목록에 자동 표시.
+  키는 [koreaexim.go.kr 오픈API](https://www.koreaexim.go.kr/ir/HPHKIR019M01)에서 무료 발급.
+
+무료 환율 소스는 대부분 하루 1회 갱신되므로 초 단위 시세 알림은 아니다. 백그라운드 웹푸시는 미지원(탭이 열려 있어야 동작).
+
 ## 환율 API
 
 `src/hooks/useExchangeRates.js`

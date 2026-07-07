@@ -8,6 +8,8 @@ import {
 import { T, won, usd, NumField, Row } from "./ui.jsx";
 import { calcImportCost } from "./lib/customs.js";
 import CompareTab from "./CompareTab.jsx";
+import AlertTab from "./AlertTab.jsx";
+import useRateAlert from "./hooks/useRateAlert.js";
 
 /* ──────────────────────────────────────────────
    엔화 직구 · 여행 관부가세 계산기 (실시간 환율)
@@ -127,6 +129,10 @@ export default function App() {
   const jr = parseFloat(jpyRate) || 0;
   const ur = parseFloat(usdRate) || 0;
 
+  // 목표 환율 알림 — 수동 입력값이 아닌 실시간 API 환율 기준으로 판정
+  const liveJpy = rates?.jpyKrw ?? 0;
+  const rateAlert = useRateAlert(liveJpy, refresh);
+
   const shop = useMemo(
     () => calcImportCost({
       priceJpy: parseFloat(price) || 0,
@@ -195,15 +201,37 @@ export default function App() {
           </div>
         </section>
 
+        {/* 목표 환율 도달 배너 — 어느 탭에서든 표시 */}
+        {rateAlert.triggered && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+            background: T.greenSoft, border: `1.5px solid ${T.green}`, borderRadius: 12,
+            padding: "10px 14px", marginBottom: 14, fontSize: 13.5, color: T.green, fontWeight: 700,
+          }}>
+            <span>🔔 목표 환율 도달 — 현재 1엔 = {liveJpy.toFixed(2)}원 (목표 {rateAlert.config.target}원 {rateAlert.config.dir === "below" ? "이하" : "이상"})</span>
+            <span style={{ flex: 1 }} />
+            <button onClick={() => rateAlert.update({ enabled: false })} style={{
+              border: `1px solid ${T.green}`, background: "transparent", color: T.green,
+              borderRadius: 7, padding: "3px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+            }}>
+              알림 끄기
+            </button>
+          </div>
+        )}
+
         {/* 탭 */}
         <nav style={{ display: "flex", gap: 6, background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 12, padding: 5, marginBottom: 16 }}>
-          {tabBtn("shop", "직구 계산기")}
-          {tabBtn("travel", "여행자 휴대품")}
+          {tabBtn("shop", "직구")}
+          {tabBtn("travel", "여행자")}
           {tabBtn("compare", "가격 비교")}
+          {tabBtn("alert", "환율 알림")}
         </nav>
 
         {/* ── 가격 비교 탭 ── */}
         {tab === "compare" && <CompareTab jpyKrw={jr} usdKrw={ur} />}
+
+        {/* ── 환율 알림 탭 ── */}
+        {tab === "alert" && <AlertTab liveRate={liveJpy} rateAlert={rateAlert} />}
 
         {/* ── 직구 탭 ── */}
         {tab === "shop" && (
