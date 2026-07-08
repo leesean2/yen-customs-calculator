@@ -5,7 +5,7 @@
  * 같은 종류의 알림은 20시간 쿨다운으로 중복 발송을 막는다.
  */
 import webpush from "web-push";
-import { readSubs, writeSubs } from "../_lib/subs.js";
+import { readSubs, saveSub, deleteSub } from "../_lib/subs.js";
 import { fetchAllSources, median } from "../_lib/rates.js";
 
 const COOLDOWN = 20 * 60 * 60 * 1000;
@@ -28,15 +28,17 @@ export default async function handler(req, res) {
   webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:noreply@example.com", pub, priv);
 
   const subs = await readSubs();
-  const keep = [];
   let sent = 0;
+  let removed = 0;
   for (const s of subs) {
     let gone = false;
+    let updated = false;
     const trySend = async (kind, payload) => {
       if (Date.now() - (s.lastSent?.[kind] || 0) < COOLDOWN) return;
       try {
         await webpush.sendNotification(s.subscription, JSON.stringify(payload));
         s.lastSent = { ...s.lastSent, [kind]: Date.now() };
+        updated = true;
         sent++;
       } catch (e) {
         // 4xx = 구독 소멸(404/410)·잘못된 키(400/403) → 저장소에서 제거
@@ -59,14 +61,21 @@ export default async function handler(req, res) {
         url: "/",
       });
     }
-    if (!gone) keep.push(s);
+
+    try {
+      if (gone) {
+        await deleteSub(s.subscription.endpoint);
+        removed++;
+      } else if (updated) {
+        await saveSub(s); // 쿨다운 기록 갱신
+      }
+    } catch { /* 저장 실패는 다음 크론에서 재시도되는 셈 */ }
   }
-  await writeSubs(keep);
 
   return res.status(200).json({
     checked: subs.length,
     sent,
-    removed: subs.length - keep.length,
+    removed,
     jpyKrw: +rate.toFixed(4),
     maxDevPct: +maxDev.toFixed(2),
     sources: sources.map((s) => s.source),

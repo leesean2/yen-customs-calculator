@@ -52,7 +52,8 @@ vercel env add RAKUTEN_APP_ID
 탭을 닫아도 알림을 받도록 확장됨:
 
 - **클라이언트**: `public/sw.js`(서비스워커) + `src/lib/push.js` — 환율 알림 탭에서 구독/해제
-- **서버**: `api/push.js`(구독 CRUD, Vercel Blob `push-subs.json`에 저장) +
+- **서버**: `api/push.js`(구독 CRUD, Vercel Blob에 구독 1건당 파일 1개 `subs/<hash>.json` —
+  단일 파일 방식은 CDN 캐시 지연·동시 쓰기 유실 문제로 사용 금지) +
   `api/cron/check-rates.js`(Vercel Cron이 호출 — 목표 도달·이상 감지 시 web-push 발송, 20시간 쿨다운,
   410 응답 구독 자동 정리). 크론 일정은 `vercel.json`(매일 01:00 UTC = 10:00 KST — **Hobby 플랜은 하루 1회 제한**).
 - 필요 환경변수: `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`(`npx web-push generate-vapid-keys`),

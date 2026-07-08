@@ -4,7 +4,7 @@
  * POST   → 구독 등록/갱신 { subscription, target, dir, anomaly }
  * DELETE → 구독 해제 { endpoint }
  */
-import { readSubs, writeSubs } from "./_lib/subs.js";
+import { saveSub, deleteSub, countSubs } from "./_lib/subs.js";
 
 const MAX_SUBS = 500; // 폭주 방지
 
@@ -26,10 +26,11 @@ export default async function handler(req, res) {
     ) {
       return res.status(400).json({ error: "유효한 subscription이 필요합니다" });
     }
-    const subs = await readSubs();
-    const rest = subs.filter((s) => s.subscription?.endpoint !== subscription.endpoint);
-    // 같은 브라우저의 재구독은 갱신으로 처리하되, 발송 쿨다운 기록은 초기화
-    rest.push({
+    if ((await countSubs()) >= MAX_SUBS) {
+      return res.status(429).json({ error: "구독이 가득 찼습니다" });
+    }
+    // 같은 브라우저의 재구독은 같은 파일 덮어쓰기(갱신) — 발송 쿨다운은 초기화
+    await saveSub({
       subscription,
       target: parseFloat(target) > 0 ? parseFloat(target) : null,
       dir: dir === "above" ? "above" : "below",
@@ -37,16 +38,13 @@ export default async function handler(req, res) {
       createdAt: Date.now(),
       lastSent: {},
     });
-    if (rest.length > MAX_SUBS) rest.splice(0, rest.length - MAX_SUBS);
-    await writeSubs(rest);
-    return res.status(200).json({ ok: true, count: rest.length });
+    return res.status(200).json({ ok: true });
   }
 
   if (req.method === "DELETE") {
     const { endpoint } = req.body || {};
     if (!endpoint) return res.status(400).json({ error: "endpoint가 필요합니다" });
-    const subs = await readSubs();
-    await writeSubs(subs.filter((s) => s.subscription?.endpoint !== endpoint));
+    await deleteSub(endpoint);
     return res.status(200).json({ ok: true });
   }
 
