@@ -2,12 +2,16 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="일본 직구 관부가세와 여행자 휴대품 세금을 실시간 환율로 계산합니다." />
     <meta name="theme-color" content="#28527A" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- iOS 홈 화면 추가 시 standalone 실행 — 웹 푸시는 홈 화면 추가+standalone이 전제라 필요 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="엔화 계산기" />
     <title>엔화 직구 · 여행 세금 계산기</title>
   </head>
   <body>
