@@ -48,7 +48,7 @@ function RateBadge({ status, source, fetchedAt, overridden, onRefresh, onReset }
     ? "직접 입력한 환율 사용 중"
     : {
         live: `실시간 환율 · ${source ?? ""}`,
-        cached: "저장된 환율 사용 중 (갱신 실패)",
+        cached: "저장된 환율 사용 중",
         loading: "환율 불러오는 중…",
         error: "환율을 불러오지 못했습니다 — 직접 입력해 주세요",
       }[status];

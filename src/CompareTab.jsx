@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { T, won, yen, NumField, Row } from "./ui.jsx";
 import { CATEGORIES } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
+import { timeoutSignal } from "./lib/net.js";
 
 /* ──────────────────────────────────────────────
    일본 vs 국내 가격 비교 탭
@@ -11,13 +12,14 @@ import { calcImportCost } from "./lib/customs.js";
    ────────────────────────────────────────────── */
 
 async function searchApi(path, q) {
-  const res = await fetch(`${path}?q=${encodeURIComponent(q)}`);
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { msg = (await res.json()).error || msg; } catch { /* ignore */ }
-    throw new Error(msg);
+  const res = await fetch(`${path}?q=${encodeURIComponent(q)}`, { signal: timeoutSignal(10_000) });
+  // vite dev 서버 등 API가 없는 환경에서는 HTML이 돌아온다
+  if (!res.headers.get("content-type")?.includes("json")) {
+    throw new Error("검색 API에 연결할 수 없습니다 (로컬 개발 시에는 vercel dev로 실행하세요)");
   }
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 
 /* 검색 입력 + 결과 리스트. onPick(price)로 선택가를 올려보낸다.
@@ -37,7 +39,10 @@ function SearchBox({ placeholder, path, priceLabel, onPick, notConfiguredHint, e
         setState({ phase: "done", items: data.items, error: null });
       }
     } catch (e) {
-      setState({ phase: "error", items: [], error: e.message });
+      const msg = e.name === "TimeoutError"
+        ? "응답 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요."
+        : e.message;
+      setState({ phase: "error", items: [], error: msg });
     }
   };
 

@@ -3,6 +3,7 @@
  * 서로 독립적인 무료 소스 3곳에서 JPY→KRW를 받아 교차 검증한다.
  * 소스별 스냅샷 시점이 달라 0.5~1% 안팎의 차이는 정상 범위.
  */
+import { timeoutSignal } from "./net.js";
 
 async function fetchErApi(signal) {
   const res = await fetch("https://open.er-api.com/v6/latest/JPY", { signal });
@@ -42,7 +43,8 @@ const SOURCES = [
 
 /** 모든 소스를 병렬 조회. 실패한 소스도 { ok:false }로 함께 반환 */
 export async function fetchJpyKrwAll(signal) {
-  const results = await Promise.allSettled(SOURCES.map((s) => s.fn(signal)));
+  const sig = signal ?? timeoutSignal(10_000); // 한 소스가 먹통이어도 UI가 멈추지 않게
+  const results = await Promise.allSettled(SOURCES.map((s) => s.fn(sig)));
   return SOURCES.map((s, i) =>
     results[i].status === "fulfilled"
       ? { name: s.name, ok: true, jpyKrw: results[i].value }

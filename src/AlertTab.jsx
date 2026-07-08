@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { T, NumField } from "./ui.jsx";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
+import { timeoutSignal } from "./lib/net.js";
 
 /* ──────────────────────────────────────────────
    환율 알림 · 이상 감지 탭
@@ -62,7 +63,9 @@ export default function AlertTab({ liveRate, rateAlert }) {
     setCheck((c) => ({ ...c, phase: "loading" }));
     const [rows, bank] = await Promise.all([
       fetchJpyKrwAll(),
-      fetch("/api/bank-rate").then((r) => r.json()).catch(() => null),
+      fetch("/api/bank-rate", { signal: timeoutSignal(10_000) })
+        .then((r) => r.json())
+        .catch(() => null),
     ]);
     setCheck({ phase: "done", rows, bank, at: Date.now() });
   };
@@ -85,7 +88,11 @@ export default function AlertTab({ liveRate, rateAlert }) {
     return { rows, med, bankDev, maxDev, level, okCount: ok.length };
   }, [check]);
 
-  const my = parseFloat(myBankRate);
+  // 은행 앱은 100엔 기준(예: 945원)으로 표시하는 곳이 많다 — 1엔당 원화가 100원을
+  // 넘을 일은 없으므로 100 이상이면 100엔 기준으로 보고 환산해 비교한다
+  const myRaw = parseFloat(myBankRate);
+  const myPer100 = myRaw >= 100;
+  const my = myPer100 ? myRaw / 100 : myRaw;
   const myDev = my > 0 ? deviationPct(my, analysis.med) : NaN;
 
   return (
@@ -215,6 +222,11 @@ export default function AlertTab({ liveRate, rateAlert }) {
               background: Math.abs(myDev) < 3 ? T.greenSoft : T.redSoft,
               color: Math.abs(myDev) < 3 ? T.green : T.red, fontWeight: 600,
             }}>
+              {myPer100 && (
+                <span style={{ display: "block", fontSize: 11.5, opacity: 0.85, marginBottom: 4 }}>
+                  100엔 기준 환율로 보여 1엔당 {my.toFixed(4)}원으로 환산해 비교했습니다.
+                </span>
+              )}
               {Math.abs(myDev) < 3 ? (
                 <>시장 기준 대비 <b>{myDev > 0 ? "+" : ""}{myDev.toFixed(2)}%</b> — 정상 범위입니다.
                   (현찰 살 때는 매매기준율보다 최대 ±1.75% 스프레드가 붙는 것이 일반적)</>

@@ -8,14 +8,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ configured: false, items: [] });
   }
 
-  const q = (req.query.q || "").toString().trim();
+  const q = (req.query.q || "").toString().trim().slice(0, 80);
   if (!q) return res.status(400).json({ error: "q(검색어)가 필요합니다" });
 
   try {
     const url =
       `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601` +
       `?applicationId=${appId}&keyword=${encodeURIComponent(q)}&hits=8&formatVersion=2`;
-    const r = await fetch(url);
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return res.status(502).json({ error: `rakuten HTTP ${r.status}` });
     const data = await r.json();
 

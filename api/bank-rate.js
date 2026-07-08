@@ -14,13 +14,17 @@ export default async function handler(req, res) {
   if (!key) return res.status(200).json({ configured: false });
 
   const KST = 9 * 60 * 60 * 1000;
-  for (let back = 0; back < 7; back++) {
+  // 최대 7일 × 2개 호스트를 순차 시도하므로, 함수 실행 제한에 걸리지 않도록
+  // 전체 8초 데드라인과 요청별 3.5초 타임아웃을 둔다
+  const deadline = Date.now() + 8000;
+  outer: for (let back = 0; back < 7; back++) {
     const ymd = new Date(Date.now() + KST - back * 86400000)
       .toISOString().slice(0, 10).replace(/-/g, "");
     for (const host of HOSTS) {
+      if (Date.now() > deadline) break outer;
       try {
         const url = `${host}/site/program/financial/exchangeJSON?authkey=${key}&searchdate=${ymd}&data=AP01`;
-        const r = await fetch(url);
+        const r = await fetch(url, { signal: AbortSignal.timeout(3500) });
         if (!r.ok) continue;
         const arr = await r.json();
         const jpy = Array.isArray(arr) && arr.find((x) => x.cur_unit?.startsWith("JPY"));
@@ -34,6 +38,8 @@ export default async function handler(req, res) {
             jpyKrw: parseFloat(jpy.deal_bas_r.replace(/,/g, "")) / 100,
           });
         }
+        // 정상 응답이지만 해당 날짜 고시가 없음(주말·공휴일) → 호스트 바꾸지 말고 전일로
+        if (Array.isArray(arr)) break;
       } catch { /* 다음 호스트/전일 시도 */ }
     }
   }

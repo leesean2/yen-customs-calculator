@@ -10,13 +10,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ configured: false, items: [] });
   }
 
-  const q = (req.query.q || "").toString().trim();
+  const q = (req.query.q || "").toString().trim().slice(0, 80);
   if (!q) return res.status(400).json({ error: "q(검색어)가 필요합니다" });
 
   try {
     const url = `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(q)}&display=8&sort=sim`;
     const r = await fetch(url, {
       headers: { "X-Naver-Client-Id": id, "X-Naver-Client-Secret": secret },
+      signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) return res.status(502).json({ error: `naver HTTP ${r.status}` });
     const data = await r.json();
