@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, TextField, Row, Stamp, selectStyle } from "./ui.jsx";
+import { T, won, usd, yen, NumField, TextField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
 import { CATEGORIES, DUTY_FREE_LIMIT_USD, LUXURY_SCT_BASE } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { todayStr } from "./lib/orders.js";
@@ -7,37 +7,8 @@ import useOrders from "./hooks/useOrders.js";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
 
-/* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적) */
-export default function ShopTab({ jr, ur }) {
-  const [price, setPrice] = useState("15000");
-  const [localShip, setLocalShip] = useState("0");
-  const [intlShip, setIntlShip] = useState("15000");
-  const [catId, setCatId] = useState("hobby");
-
-  // ── 구매 이력 (합산과세 추적) ──
-  const [seller, setSeller] = useState("");
-  const [itemName, setItemName] = useState("");
-
-  const shop = useMemo(
-    () => calcImportCost({
-      priceJpy: parseFloat(price) || 0,
-      localShipJpy: parseFloat(localShip) || 0,
-      intlShipKrw: parseFloat(intlShip) || 0,
-      cat: CATEGORIES.find((c) => c.id === catId),
-      jpyKrw: jr,
-      usdKrw: ur,
-    }),
-    [price, localShip, intlShip, catId, jr, ur]
-  );
-
-  // 같은 날 + 같은 판매자 기록 → 합산과세 경고
-  // 면세 판정 기준은 '물품가격'(상품가+현지 배송비) — 합산도 같은 기준
-  const { orders, add, remove, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver } =
-    useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: jr, usdKrw: ur, limitUsd: DUTY_FREE_LIMIT_USD });
-
-  const canRecord = sellerTrim && shop.goodsJpy > 0;
-
-  // 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다
+/* 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다 */
+function buildBreakdownSteps({ shop, jr, ur, price, localShip }) {
   const dutyPct = Math.round(shop.cat.duty * 100);
   const taxTerms = [
     `관세 ${won(shop.duty)}`,
@@ -45,7 +16,8 @@ export default function ShopTab({ jr, ur }) {
     shop.edu > 0 && `교육세 ${won(shop.edu)}`,
     `부가세 ${won(shop.vat)}`,
   ].filter(Boolean);
-  const breakdownSteps = [
+
+  return [
     {
       label: "물품가격 (면세 판정 기준)",
       expr: `상품 ${yen(parseFloat(price) || 0)} + 일본 내 배송·수수료 ${yen(parseFloat(localShip) || 0)} = ${yen(shop.goodsJpy)}`,
@@ -102,10 +74,42 @@ export default function ShopTab({ jr, ur }) {
       expr: `물품 ${won(shop.goodsKrw)} + 국제 배송 ${won(shop.intl)} + 세금 ${won(shop.totalTax)} = ${won(shop.final)}`,
     },
   ];
+}
+
+/* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적) */
+export default function ShopTab({ jr, ur }) {
+  const [price, setPrice] = useState("15000");
+  const [localShip, setLocalShip] = useState("0");
+  const [intlShip, setIntlShip] = useState("15000");
+  const [catId, setCatId] = useState("hobby");
+
+  // ── 구매 이력 (합산과세 추적) ──
+  const [seller, setSeller] = useState("");
+  const [itemName, setItemName] = useState("");
+
+  const shop = useMemo(
+    () => calcImportCost({
+      priceJpy: parseFloat(price) || 0,
+      localShipJpy: parseFloat(localShip) || 0,
+      intlShipKrw: parseFloat(intlShip) || 0,
+      cat: CATEGORIES.find((c) => c.id === catId),
+      jpyKrw: jr,
+      usdKrw: ur,
+    }),
+    [price, localShip, intlShip, catId, jr, ur]
+  );
+
+  // 같은 날 + 같은 판매자 기록 → 합산과세 경고
+  // 면세 판정 기준은 '물품가격'(상품가+현지 배송비) — 합산도 같은 기준
+  const { orders, add, remove, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver } =
+    useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: jr, usdKrw: ur, limitUsd: DUTY_FREE_LIMIT_USD });
+
+  const canRecord = sellerTrim && shop.goodsJpy > 0;
+  const breakdownSteps = buildBreakdownSteps({ shop, jr, ur, price, localShip });
 
   return (
     <>
-      <section style={{ background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 6px", marginBottom: 16 }}>
+      <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
         <NumField label="상품 가격" suffix="¥" value={price} onChange={setPrice} />
         <NumField label="일본 내 배송비·수수료" suffix="¥" value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />
@@ -146,7 +150,7 @@ export default function ShopTab({ jr, ur }) {
         </div>
       )}
 
-      <section style={{ background: T.card, border: `1.5px solid ${shop.taxed ? T.red : T.green}`, borderRadius: 14, padding: 18 }}>
+      <section style={{ ...panel(shop.taxed ? T.red : T.green), padding: 18 }}>
         <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10 }}>
           <Stamp taxed={shop.taxed} />
           <div style={{ flex: 1 }}>

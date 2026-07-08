@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { T, yen } from "./ui.jsx";
+import { T, yen, panel } from "./ui.jsx";
 
 /* 구매 이력 카드 — 기록 버튼 + 최근 목록 (직구 탭 하단) */
 export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove }) {
@@ -15,7 +15,7 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
   };
 
   return (
-    <section style={{ background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 14, padding: "16px 16px 12px", marginTop: 16 }}>
+    <section style={{ ...panel(), padding: "16px 16px 12px", marginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <div style={{ flex: 1, fontSize: 13.5, fontWeight: 800, color: T.ink }}>
           🧾 구매 이력 <span style={{ fontWeight: 600, color: T.muted, fontSize: 12 }}>({orders.length}건 · 최근 60일)</span>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, Row, Stamp, selectStyle } from "./ui.jsx";
+import { T, won, usd, yen, NumField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
 import { TRAVELER_LIMIT_USD, TRAVEL_RATES } from "./data/categories.js";
 import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
 
@@ -27,7 +27,7 @@ export default function TravelTab({ jr, ur }) {
 
   return (
     <>
-      <section style={{ background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 6px", marginBottom: 16 }}>
+      <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
         <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입하는 물품 전체" />
         <label style={{ display: "block", marginBottom: 14 }}>
           <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>주요 품목 (간이세율)</span>
@@ -53,7 +53,7 @@ export default function TravelTab({ jr, ur }) {
         </label>
       </section>
 
-      <section style={{ background: T.card, border: `1.5px solid ${travel.taxed ? T.red : T.green}`, borderRadius: 14, padding: 18 }}>
+      <section style={{ ...panel(travel.taxed ? T.red : T.green), padding: 18 }}>
         <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10 }}>
           <Stamp taxed={travel.taxed} />
           <div style={{ flex: 1 }}>

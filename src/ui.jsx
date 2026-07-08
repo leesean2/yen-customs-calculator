@@ -59,6 +59,13 @@ export function TextField({ label, value, onChange, placeholder, hint }) {
   );
 }
 
+/* 카드 패널 공통 골격 — 각 탭의 입력·결과 카드가 공유. 테두리 색만 상황에 따라 바뀐다 */
+export const panel = (borderColor = T.line) => ({
+  background: T.card,
+  border: `1.5px solid ${borderColor}`,
+  borderRadius: 14,
+});
+
 export const selectStyle = {
   width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
   border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
