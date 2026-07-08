@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { T, NumField } from "./ui.jsx";
+import { T, NumField, selectStyle } from "./ui.jsx";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
 import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
@@ -200,10 +200,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
           <NumField label="목표 환율" suffix="원 / 1엔" value={config.target} onChange={(v) => update({ target: v })} />
           <label style={{ display: "block", marginBottom: 14 }}>
             <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>조건</span>
-            <select value={config.dir} onChange={(e) => update({ dir: e.target.value })} style={{
-              width: "100%", padding: "12px 12px", fontSize: 14.5, fontWeight: 600, color: T.ink,
-              border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
-            }}>
+            <select value={config.dir} onChange={(e) => update({ dir: e.target.value })} style={selectStyle}>
               <option value="below">이하로 내려가면 (엔저 · 살 때 유리)</option>
               <option value="above">이상으로 올라가면</option>
             </select>

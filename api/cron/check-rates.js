@@ -39,8 +39,9 @@ export default async function handler(req, res) {
         s.lastSent = { ...s.lastSent, [kind]: Date.now() };
         sent++;
       } catch (e) {
-        // 404/410 = 브라우저에서 구독이 사라짐 → 저장소에서 제거
-        if (e.statusCode === 404 || e.statusCode === 410) gone = true;
+        // 4xx = 구독 소멸(404/410)·잘못된 키(400/403) → 저장소에서 제거
+        // (429 요청 제한과 5xx·네트워크 오류는 일시적이므로 유지)
+        if (e.statusCode >= 400 && e.statusCode < 500 && e.statusCode !== 429) gone = true;
       }
     };
 

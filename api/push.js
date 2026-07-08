@@ -18,7 +18,12 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     const { subscription, target, dir, anomaly } = req.body || {};
-    if (!subscription?.endpoint || !subscription?.keys) {
+    if (
+      typeof subscription?.endpoint !== "string" ||
+      !subscription.endpoint.startsWith("https://") ||
+      !subscription.keys?.p256dh ||
+      !subscription.keys?.auth
+    ) {
       return res.status(400).json({ error: "유효한 subscription이 필요합니다" });
     }
     const subs = await readSubs();

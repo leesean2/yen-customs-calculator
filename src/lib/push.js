@@ -26,11 +26,13 @@ async function getRegistration() {
   return reg;
 }
 
-/** 현재 브라우저의 구독 객체 (없으면 null) */
+/** 현재 브라우저의 구독 객체 (없으면 null) —
+ *  상태 확인만 하므로 서비스워커를 새로 설치하지 않는다 */
 export async function getPushSubscription() {
   if (!pushSupported()) return null;
   try {
-    const reg = await getRegistration();
+    const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+    if (!reg) return null;
     return await reg.pushManager.getSubscription();
   } catch {
     return null;

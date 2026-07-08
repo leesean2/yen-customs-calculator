@@ -1,41 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import useExchangeRates from "./hooks/useExchangeRates.js";
-import {
-  CATEGORIES,
-  DUTY_FREE_LIMIT_USD,
-  TRAVELER_LIMIT_USD,
-  TRAVEL_RATES,
-} from "./data/categories.js";
-import { T, won, usd, NumField, Row } from "./ui.jsx";
-import { calcImportCost } from "./lib/customs.js";
+import useRateAlert from "./hooks/useRateAlert.js";
+import { T, NumField } from "./ui.jsx";
+import ShopTab from "./ShopTab.jsx";
+import TravelTab from "./TravelTab.jsx";
 import CompareTab from "./CompareTab.jsx";
 import AlertTab from "./AlertTab.jsx";
-import useRateAlert from "./hooks/useRateAlert.js";
 
 /* ──────────────────────────────────────────────
    엔화 직구 · 여행 관부가세 계산기 (실시간 환율)
    기준: 2026-07 관세청 규정 (참고용 계산)
+   각 탭의 입력·계산은 해당 탭 컴포넌트가 소유하고,
+   App은 환율 상태·알림 배너·탭 전환만 담당한다.
    ────────────────────────────────────────────── */
-
-/* 인장(도장) 스타일 판정 표시 */
-function Stamp({ taxed }) {
-  const color = taxed ? T.red : T.green;
-  return (
-    <div aria-label={taxed ? "과세 대상" : "면세 대상"} style={{
-      width: 86, height: 86, borderRadius: "50%",
-      border: `3.5px solid ${color}`, color,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      transform: "rotate(-8deg)", flexShrink: 0,
-      boxShadow: `inset 0 0 0 2px ${taxed ? T.redSoft : T.greenSoft}`,
-      fontWeight: 900, letterSpacing: "0.1em", userSelect: "none",
-    }}>
-      <span style={{ fontSize: 26, lineHeight: 1 }}>{taxed ? "과세" : "면세"}</span>
-      <span style={{ fontSize: 9.5, marginTop: 4, fontWeight: 700, letterSpacing: "0.15em" }}>
-        {taxed ? "TAXABLE" : "DUTY FREE"}
-      </span>
-    </div>
-  );
-}
 
 /* 환율 상태 배지 */
 function RateBadge({ status, source, fetchedAt, overridden, onRefresh, onReset }) {
@@ -86,8 +63,21 @@ const badgeBtnStyle = {
   cursor: "pointer",
 };
 
+const TABS = [
+  { id: "shop", label: "직구" },
+  { id: "travel", label: "여행자" },
+  { id: "compare", label: "가격 비교" },
+  { id: "alert", label: "환율 알림" },
+];
+
 export default function App() {
+  // 한 번 방문한 탭은 숨김 처리(display:none)로 유지 — 입력값과 검사 결과가 탭 전환에도 보존된다
   const [tab, setTab] = useState("shop");
+  const [visited, setVisited] = useState({ shop: true });
+  const openTab = (id) => {
+    setTab(id);
+    setVisited((v) => (v[id] ? v : { ...v, [id]: true }));
+  };
 
   // ── 환율: API 값 ↔ 수동 입력 ──
   const { rates, status, fetchedAt, refresh } = useExchangeRates();
@@ -117,17 +107,6 @@ export default function App() {
     }
   };
 
-  // ── 직구 입력 ──
-  const [price, setPrice] = useState("15000");
-  const [localShip, setLocalShip] = useState("0");
-  const [intlShip, setIntlShip] = useState("15000");
-  const [catId, setCatId] = useState("hobby");
-
-  // ── 여행 입력 ──
-  const [travelTotal, setTravelTotal] = useState("150000");
-  const [selfReport, setSelfReport] = useState(true);
-  const [travelRateId, setTravelRateId] = useState("single20");
-
   const jr = parseFloat(jpyRate) || 0;
   const ur = parseFloat(usdRate) || 0;
 
@@ -135,43 +114,8 @@ export default function App() {
   const liveJpy = rates?.jpyKrw ?? 0;
   const rateAlert = useRateAlert(liveJpy, refresh);
 
-  const shop = useMemo(
-    () => calcImportCost({
-      priceJpy: parseFloat(price) || 0,
-      localShipJpy: parseFloat(localShip) || 0,
-      intlShipKrw: parseFloat(intlShip) || 0,
-      cat: CATEGORIES.find((c) => c.id === catId),
-      jpyKrw: jr,
-      usdKrw: ur,
-    }),
-    [price, localShip, intlShip, catId, jr, ur]
-  );
-
-  const travel = useMemo(() => {
-    const rate = TRAVEL_RATES.find((r) => r.id === travelRateId);
-    const totalKrw = (parseFloat(travelTotal) || 0) * jr;
-    const totalUsd = ur ? totalKrw / ur : NaN;
-    const limitKrw = TRAVELER_LIMIT_USD * ur;
-    const over = Math.max(0, totalKrw - limitKrw);
-    const overUsd = ur ? over / ur : NaN;
-    const taxed = ur ? over > 0 : false;
-    const special = !rate.calc; // 주류·담배 — 간이세율 미적용
-    // 단일간이세율(20%)은 과세대상 합계 USD 1,000 이하일 때만 선택 가능
-    const singleLimitOver = rate.id === "single20" && overUsd > 1000;
-    let tax = taxed && rate.calc ? rate.calc(over) : 0;
-    let discount = taxed && !special && selfReport ? Math.min(tax * 0.3, 200_000) : 0;
-    return { rate, totalKrw, totalUsd, limitKrw, over, overUsd, taxed, special, singleLimitOver, tax, discount, finalTax: tax - discount };
-  }, [travelTotal, selfReport, travelRateId, jr, ur]);
-
-  const tabBtn = (id, label) => (
-    <button key={id} onClick={() => setTab(id)} style={{
-      flex: 1, padding: "11px 0", fontSize: 14.5, fontWeight: 700, cursor: "pointer",
-      border: "none", borderRadius: 9,
-      background: tab === id ? T.indigo : "transparent",
-      color: tab === id ? "#fff" : T.muted,
-      transition: "background .15s, color .15s",
-    }}>{label}</button>
-  );
+  const tabPanel = (id, node) =>
+    visited[id] ? <div style={{ display: tab === id ? undefined : "none" }}>{node}</div> : null;
 
   return (
     <div style={{ minHeight: "100vh", background: T.paper, padding: "28px 16px 60px", fontFamily: `'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif`, color: T.ink }}>
@@ -217,10 +161,7 @@ export default function App() {
           }}>
             <span>🔔 목표 환율 도달 — 현재 1엔 = {liveJpy.toFixed(2)}원 (목표 {rateAlert.config.target}원 {rateAlert.config.dir === "below" ? "이하" : "이상"})</span>
             <span style={{ flex: 1 }} />
-            <button onClick={() => rateAlert.update({ enabled: false })} style={{
-              border: `1px solid ${T.green}`, background: "transparent", color: T.green,
-              borderRadius: 7, padding: "3px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
-            }}>
+            <button onClick={() => rateAlert.update({ enabled: false })} style={badgeBtnStyle}>
               알림 끄기
             </button>
           </div>
@@ -228,170 +169,21 @@ export default function App() {
 
         {/* 탭 */}
         <nav style={{ display: "flex", gap: 6, background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 12, padding: 5, marginBottom: 16 }}>
-          {tabBtn("shop", "직구")}
-          {tabBtn("travel", "여행자")}
-          {tabBtn("compare", "가격 비교")}
-          {tabBtn("alert", "환율 알림")}
+          {TABS.map(({ id, label }) => (
+            <button key={id} onClick={() => openTab(id)} style={{
+              flex: 1, padding: "11px 0", fontSize: 14.5, fontWeight: 700, cursor: "pointer",
+              border: "none", borderRadius: 9,
+              background: tab === id ? T.indigo : "transparent",
+              color: tab === id ? "#fff" : T.muted,
+              transition: "background .15s, color .15s",
+            }}>{label}</button>
+          ))}
         </nav>
 
-        {/* ── 가격 비교 탭 ── */}
-        {tab === "compare" && <CompareTab jpyKrw={jr} usdKrw={ur} />}
-
-        {/* ── 환율 알림 탭 ── */}
-        {tab === "alert" && <AlertTab liveRate={liveJpy} rateAlert={rateAlert} />}
-
-        {/* ── 직구 탭 ── */}
-        {tab === "shop" && (
-          <>
-            <section style={{ background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 6px", marginBottom: 16 }}>
-              <NumField label="상품 가격" suffix="¥" value={price} onChange={setPrice} />
-              <NumField label="일본 내 배송비·수수료" suffix="¥" value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
-              <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />
-              <label style={{ display: "block", marginBottom: 14 }}>
-                <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목</span>
-                <select value={catId} onChange={(e) => setCatId(e.target.value)} style={{
-                  width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
-                  border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
-                }}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label} — 관세 {Math.round(c.duty * 100)}%
-                    </option>
-                  ))}
-                </select>
-                {shop.cat.note && (
-                  <span style={{ display: "block", fontSize: 12, color: shop.cat.excluded ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
-                    {shop.cat.note}
-                  </span>
-                )}
-              </label>
-            </section>
-
-            <section style={{ background: T.card, border: `1.5px solid ${shop.taxed ? T.red : T.green}`, borderRadius: 14, padding: 18 }}>
-              <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10 }}>
-                <Stamp taxed={shop.taxed} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: T.muted, marginBottom: 2 }}>물품가격 (면세 판정 기준)</div>
-                  <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-                    {won(shop.goodsKrw)}{" "}
-                    <span style={{ fontSize: 13.5, color: shop.overLimit ? T.red : T.green, fontWeight: 700 }}>
-                      ≈ {usd(shop.goodsUsd)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>
-                    {shop.taxed
-                      ? shop.overLimit
-                        ? `미화 ${DUTY_FREE_LIMIT_USD}달러 초과 — 초과분이 아닌 전체 금액에 과세됩니다.`
-                        : "목록통관 배제 품목 — 금액과 무관하게 과세될 수 있습니다."
-                      : `미화 ${DUTY_FREE_LIMIT_USD}달러 이하 자가사용 — 관세·부가세가 면제됩니다.`}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 8 }}>
-                {shop.taxed && (
-                  <>
-                    <Row label="과세가격 (물품 + 국제운임)" value={won(shop.taxable)} />
-                    <Row label={`관세 (${Math.round(shop.cat.duty * 100)}%)`} value={won(shop.duty)} />
-                    {shop.sct > 0 && <Row label="개별소비세 (200만원 초과분 20%)" value={won(shop.sct)} />}
-                    {shop.edu > 0 && <Row label="교육세 (개소세의 30%)" value={won(shop.edu)} />}
-                    <Row label={shop.cat.vatExempt ? "부가가치세 (면제)" : "부가가치세 (10%)"} value={won(shop.vat)} />
-                    <Row label="세금 합계" value={won(shop.totalTax)} strong red top />
-                  </>
-                )}
-                <Row label="최종 예상 비용 (상품+배송+세금)" value={won(shop.final)} strong top={!shop.taxed} />
-              </div>
-            </section>
-
-            <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
-              · 같은 판매자에게 같은 날 주문한 물품은 합산 과세될 수 있습니다.<br />
-              · 실제 세액은 통관 시점의 관세청 고시환율과 세관 판단에 따라 달라집니다. 정확한 금액은 관세청{" "}
-              <a href="https://www.customs.go.kr/kcs/ad/tax/BuyTaxCalculation.do" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>
-                해외직구물품 예상세액 조회
-              </a>
-              에서 확인하세요.
-            </p>
-          </>
-        )}
-
-        {/* ── 여행 탭 ── */}
-        {tab === "travel" && (
-          <>
-            <section style={{ background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 6px", marginBottom: 16 }}>
-              <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입하는 물품 전체" />
-              <label style={{ display: "block", marginBottom: 14 }}>
-                <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>주요 품목 (간이세율)</span>
-                <select value={travelRateId} onChange={(e) => setTravelRateId(e.target.value)} style={{
-                  width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
-                  border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
-                }}>
-                  {TRAVEL_RATES.map((r) => (
-                    <option key={r.id} value={r.id}>{r.label}</option>
-                  ))}
-                </select>
-                {travel.rate.note && (
-                  <span style={{ display: "block", fontSize: 12, color: travel.special ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
-                    {travel.rate.note}
-                  </span>
-                )}
-                {travel.singleLimitOver && (
-                  <span style={{ display: "block", fontSize: 12, color: T.red, marginTop: 6, lineHeight: 1.5 }}>
-                    과세대상이 미화 1,000달러(약 {won(1000 * ur)})를 초과해 단일간이세율(20%)을 적용할 수 없습니다. 위에서 실제 품목을 선택하세요.
-                  </span>
-                )}
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
-                <input type="checkbox" checked={selfReport} onChange={(e) => setSelfReport(e.target.checked)} style={{ width: 18, height: 18, accentColor: T.indigo }} />
-                <span style={{ fontSize: 14, fontWeight: 600 }}>세관에 자진신고 (세액 30% 감면, 최대 20만원)</span>
-              </label>
-            </section>
-
-            <section style={{ background: T.card, border: `1.5px solid ${travel.taxed ? T.red : T.green}`, borderRadius: 14, padding: 18 }}>
-              <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 10 }}>
-                <Stamp taxed={travel.taxed} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: T.muted, marginBottom: 2 }}>총 구매금액</div>
-                  <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-                    {won(travel.totalKrw)}{" "}
-                    <span style={{ fontSize: 13.5, color: travel.taxed ? T.red : T.green, fontWeight: 700 }}>
-                      ≈ {usd(travel.totalUsd)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>
-                    여행자 휴대품 기본 면세한도는 미화 <b>{TRAVELER_LIMIT_USD}달러</b>
-                    {ur ? ` (약 ${won(travel.limitKrw)})` : ""}입니다.
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 8 }}>
-                {travel.taxed ? (
-                  travel.special ? (
-                    <p style={{ margin: "6px 0 2px", fontSize: 13, color: T.red, fontWeight: 600, lineHeight: 1.6 }}>
-                      주류·담배는 간이세율이 아닌 주세·담배소비세 등 별도 세율이 적용되어 여기서 계산할 수 없습니다.
-                      관세청 <a href="https://www.customs.go.kr/kcs/ad/tax/ItemTaxCalculation.do" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>휴대품 예상세액 조회</a>를 이용하세요.
-                    </p>
-                  ) : (
-                    <>
-                      <Row label="면세한도 초과분" value={won(travel.over)} />
-                      <Row label={`예상 세액 (간이세율 ${travel.rate.rateText})`} value={won(travel.tax)} />
-                      {travel.discount > 0 && <Row label="자진신고 감면 (−30%)" value={"−" + won(travel.discount)} />}
-                      <Row label="납부 예상 세액" value={won(travel.finalTax)} strong red top />
-                    </>
-                  )
-                ) : (
-                  <Row label="납부 예상 세액" value="0원" strong top />
-                )}
-              </div>
-            </section>
-
-            <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
-              · 간이세율은 관세법 시행령 별표2 기준이며, 여러 품목 혼합 구매 시 실제 세액은 품목별 계산에 따라 달라집니다.<br />
-              · 술(2병·2L·$400 이내)·담배(궐련 200개비)·향수(100mL)는 기본 면세한도와 별도로 적용됩니다.<br />
-              · 신고 대상을 신고하지 않고 적발되면 세액의 40%(반복 시 60%) 가산세가 부과됩니다.
-            </p>
-          </>
-        )}
+        {tabPanel("shop", <ShopTab jr={jr} ur={ur} />)}
+        {tabPanel("travel", <TravelTab jr={jr} ur={ur} />)}
+        {tabPanel("compare", <CompareTab jpyKrw={jr} usdKrw={ur} />)}
+        {tabPanel("alert", <AlertTab liveRate={liveJpy} rateAlert={rateAlert} />)}
 
         <footer style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${T.line}`, fontSize: 11, color: T.muted, textAlign: "center" }}>
           본 계산기는 참고용이며 법적 효력이 없습니다 · 기준: 2026.07

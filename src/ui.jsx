@@ -40,6 +40,31 @@ export function NumField({ label, suffix, value, onChange, hint }) {
   );
 }
 
+export const selectStyle = {
+  width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
+  border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
+};
+
+/* 인장(도장) 스타일 판정 표시 — 직구·여행 탭 공용 */
+export function Stamp({ taxed }) {
+  const color = taxed ? T.red : T.green;
+  return (
+    <div aria-label={taxed ? "과세 대상" : "면세 대상"} style={{
+      width: 86, height: 86, borderRadius: "50%",
+      border: `3.5px solid ${color}`, color,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      transform: "rotate(-8deg)", flexShrink: 0,
+      boxShadow: `inset 0 0 0 2px ${taxed ? T.redSoft : T.greenSoft}`,
+      fontWeight: 900, letterSpacing: "0.1em", userSelect: "none",
+    }}>
+      <span style={{ fontSize: 26, lineHeight: 1 }}>{taxed ? "과세" : "면세"}</span>
+      <span style={{ fontSize: 9.5, marginTop: 4, fontWeight: 700, letterSpacing: "0.15em" }}>
+        {taxed ? "TAXABLE" : "DUTY FREE"}
+      </span>
+    </div>
+  );
+}
+
 export function Row({ label, value, strong, red, top }) {
   return (
     <div style={{
