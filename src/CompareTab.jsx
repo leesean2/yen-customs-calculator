@@ -20,8 +20,9 @@ async function searchApi(path, q) {
   return res.json();
 }
 
-/* 검색 입력 + 결과 리스트. onPick(price)로 선택가를 올려보낸다 */
-function SearchBox({ placeholder, path, priceLabel, onPick, notConfiguredHint }) {
+/* 검색 입력 + 결과 리스트. onPick(price)로 선택가를 올려보낸다.
+   extLinks: API 키가 없어도 쓸 수 있는 외부 사이트 검색 링크 [{label, make(q)}] */
+function SearchBox({ placeholder, path, priceLabel, onPick, notConfiguredHint, extLinks }) {
   const [q, setQ] = useState("");
   const [state, setState] = useState({ phase: "idle", items: [], error: null });
 
@@ -60,9 +61,21 @@ function SearchBox({ placeholder, path, priceLabel, onPick, notConfiguredHint })
         </button>
       </div>
 
+      {extLinks && (
+        <div style={{ display: "flex", gap: 12, marginTop: 7, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: T.muted, fontWeight: 600 }}>사이트에서 직접 검색:</span>
+          {extLinks.map((l) => (
+            <a key={l.label} href={l.make(q.trim())} target="_blank" rel="noreferrer"
+              style={{ fontSize: 11.5, color: T.indigo, fontWeight: 700 }}>
+              {l.label} ↗
+            </a>
+          ))}
+        </div>
+      )}
+
       {state.phase === "off" && (
         <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.6, margin: "8px 0 0" }}>
-          검색 API 키가 아직 설정되지 않았습니다. {notConfiguredHint} 아래에 가격을 직접 입력해도 비교할 수 있습니다.
+          검색 API 키가 아직 설정되지 않았습니다. {notConfiguredHint} 위의 사이트 링크에서 가격을 확인해 직접 입력하면 동일하게 비교할 수 있습니다.
         </p>
       )}
       {state.phase === "error" && (
@@ -159,7 +172,8 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
   );
 
   const kr = parseFloat(krPrice) || 0;
-  const ready = jp.final > 0 && kr > 0;
+  // 배송비 기본값만으로 판정되지 않도록 일본 상품가 입력을 필수로 요구
+  const ready = (parseFloat(jpPrice) || 0) > 0 && kr > 0;
   const diff = kr - jp.final; // 양수면 직구가 저렴
   const diffPct = ready ? (Math.abs(diff) / kr) * 100 : 0;
   const verdict = !ready ? null : diffPct < 3 ? "even" : diff > 0 ? "japan" : "korea";
@@ -175,9 +189,14 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
           priceLabel={yen}
           onPick={(p) => setJpPrice(String(p))}
           notConfiguredHint="(Vercel 환경변수 RAKUTEN_APP_ID 필요)"
+          extLinks={[
+            { label: "라쿠텐", make: (q) => q ? `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(q)}/` : "https://www.rakuten.co.jp/" },
+            { label: "아마존재팬", make: (q) => q ? `https://www.amazon.co.jp/s?k=${encodeURIComponent(q)}` : "https://www.amazon.co.jp/" },
+            { label: "요도바시", make: (q) => q ? `https://www.yodobashi.com/?word=${encodeURIComponent(q)}` : "https://www.yodobashi.com/" },
+          ]}
         />
         <NumField label="일본 상품 가격" suffix="¥" value={jpPrice} onChange={setJpPrice}
-          hint={<>아마존재팬은 API가 없어 직접 확인 후 입력하세요 — <a href="https://www.amazon.co.jp/" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>amazon.co.jp 열기</a></>} />
+          hint="위 링크에서 확인한 세금 포함가를 입력하세요" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} />
         <label style={{ display: "block", marginBottom: 14 }}>
           <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목 (관부가세 계산용)</span>

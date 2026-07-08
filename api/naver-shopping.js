@@ -21,9 +21,15 @@ export default async function handler(req, res) {
     if (!r.ok) return res.status(502).json({ error: `naver HTTP ${r.status}` });
     const data = await r.json();
 
-    // lprice는 네이버 카탈로그 기준 최저가(문자열) — 태그 제거 후 정수화
+    // 상품명에는 <b> 태그와 &amp; 같은 HTML 엔티티가 섞여 온다
+    const cleanTitle = (s) =>
+      s.replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, " ");
+
+    // lprice는 네이버 카탈로그 기준 최저가(문자열)
     const items = (data.items ?? []).map((it) => ({
-      title: it.title.replace(/<[^>]*>/g, ""),
+      title: cleanTitle(it.title),
       price: Number(it.lprice) || 0,
       mall: it.mallName || "네이버쇼핑",
       link: it.link,

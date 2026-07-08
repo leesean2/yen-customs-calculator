@@ -180,6 +180,11 @@ export default function AlertTab({ liveRate, rateAlert }) {
                   수출입은행 고시환율 비교는 Vercel 환경변수 <code>KOREAEXIM_API_KEY</code> 설정 시 자동 표시됩니다.
                 </p>
               )}
+              {check.bank?.error && (
+                <p style={{ fontSize: 11, color: T.red, margin: "6px 0 0", lineHeight: 1.5 }}>
+                  수출입은행 고시환율 조회 실패: {check.bank.error}
+                </p>
+              )}
             </div>
 
             <div style={{
