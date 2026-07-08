@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, NumField, Row, Stamp, selectStyle } from "./ui.jsx";
+import { T, won, usd, yen, NumField, Row, Stamp, selectStyle } from "./ui.jsx";
 import { TRAVELER_LIMIT_USD, TRAVEL_RATES } from "./data/categories.js";
+import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
 
 /* 여행자 휴대품 세금 계산 탭 (품목별 간이세율) */
 export default function TravelTab({ jr, ur }) {
@@ -89,6 +90,45 @@ export default function TravelTab({ jr, ur }) {
             <Row label="납부 예상 세액" value="0원" strong top />
           )}
         </div>
+
+        <CalcBreakdown
+          steps={[
+            {
+              label: "원화 환산",
+              expr: `${yen(parseFloat(travelTotal) || 0)} × ${rate100Text(jr)} = ${won(travel.totalKrw)}`,
+            },
+            ur > 0 && {
+              label: "면세한도 환산",
+              expr: `$${TRAVELER_LIMIT_USD} × ${won(ur)}/$1 = ${won(travel.limitKrw)}`,
+            },
+            {
+              label: "면세 판정",
+              expr: travel.taxed
+                ? `${won(travel.totalKrw)} − 면세한도 ${won(travel.limitKrw)} = 초과분 ${won(travel.over)} → 과세`
+                : `${won(travel.totalKrw)} ≤ 면세한도 ${won(travel.limitKrw)} → 면세 (세금 0원)`,
+              note: travel.taxed ? "직구와 달리 여행자 휴대품은 한도 초과분에만 과세됩니다." : undefined,
+            },
+            ...(travel.taxed && !travel.special
+              ? [
+                  {
+                    label: `예상 세액 (간이세율 ${travel.rate.rateText})`,
+                    expr: travel.rate.id.endsWith("45")
+                      ? `초과분 ${won(travel.over)}에 ${travel.rate.rateText} 구간세율 적용 = ${won(travel.tax)}`
+                      : `초과분 ${won(travel.over)} × ${travel.rate.rateText} = ${won(travel.tax)}`,
+                    note: travel.rate.note,
+                  },
+                  travel.discount > 0 && {
+                    label: "자진신고 감면",
+                    expr: `min(세액 ${won(travel.tax)} × 30%, 상한 200,000원) = −${won(travel.discount)}`,
+                  },
+                  {
+                    label: "납부 예상 세액",
+                    expr: `${won(travel.tax)} − 감면 ${won(travel.discount)} = ${won(travel.finalTax)}`,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </section>
 
       <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>

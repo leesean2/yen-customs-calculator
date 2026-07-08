@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { T, won, usd, yen, NumField, TextField, Row, Stamp, selectStyle } from "./ui.jsx";
-import { CATEGORIES, DUTY_FREE_LIMIT_USD } from "./data/categories.js";
+import { CATEGORIES, DUTY_FREE_LIMIT_USD, LUXURY_SCT_BASE } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { todayStr } from "./lib/orders.js";
 import useOrders from "./hooks/useOrders.js";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
+import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
 
 /* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적) */
 export default function ShopTab({ jr, ur }) {
@@ -35,6 +36,72 @@ export default function ShopTab({ jr, ur }) {
     useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: jr, usdKrw: ur, limitUsd: DUTY_FREE_LIMIT_USD });
 
   const canRecord = sellerTrim && shop.goodsJpy > 0;
+
+  // 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다
+  const dutyPct = Math.round(shop.cat.duty * 100);
+  const taxTerms = [
+    `관세 ${won(shop.duty)}`,
+    shop.sct > 0 && `개소세 ${won(shop.sct)}`,
+    shop.edu > 0 && `교육세 ${won(shop.edu)}`,
+    `부가세 ${won(shop.vat)}`,
+  ].filter(Boolean);
+  const breakdownSteps = [
+    {
+      label: "물품가격 (면세 판정 기준)",
+      expr: `상품 ${yen(parseFloat(price) || 0)} + 일본 내 배송·수수료 ${yen(parseFloat(localShip) || 0)} = ${yen(shop.goodsJpy)}`,
+    },
+    {
+      label: "원화 환산",
+      expr: `${yen(shop.goodsJpy)} × ${rate100Text(jr)} = ${won(shop.goodsKrw)}`,
+    },
+    ur > 0 && {
+      label: "달러 환산",
+      expr: `${won(shop.goodsKrw)} ÷ ${won(ur)}/$1 = ${usd(shop.goodsUsd)}`,
+    },
+    {
+      label: "면세 판정",
+      expr: shop.cat.excluded
+        ? "목록통관 배제 품목 → 금액과 무관하게 과세"
+        : shop.overLimit
+          ? `${usd(shop.goodsUsd)} > 면세한도 $${DUTY_FREE_LIMIT_USD} → 전체 금액 과세`
+          : `${usd(shop.goodsUsd)} ≤ 면세한도 $${DUTY_FREE_LIMIT_USD} → 면세`,
+      note: shop.overLimit ? "한도를 넘으면 초과분이 아닌 물품가격 전체가 과세됩니다." : undefined,
+    },
+    ...(shop.taxed
+      ? [
+          {
+            label: "과세가격",
+            expr: `물품 ${won(shop.goodsKrw)} + 국제운임 ${won(shop.intl)} = ${won(shop.taxable)}`,
+          },
+          {
+            label: `관세 (${dutyPct}%)`,
+            expr: `${won(shop.taxable)} × ${dutyPct}% = ${won(shop.duty)}`,
+          },
+          shop.sct > 0 && {
+            label: "개별소비세 (20%)",
+            expr: `(과세가격+관세 ${won(shop.taxable + shop.duty)} − 기준 ${won(LUXURY_SCT_BASE)}) × 20% = ${won(shop.sct)}`,
+          },
+          shop.edu > 0 && {
+            label: "교육세 (개소세의 30%)",
+            expr: `${won(shop.sct)} × 30% = ${won(shop.edu)}`,
+          },
+          {
+            label: shop.cat.vatExempt ? "부가가치세 (면제)" : "부가가치세 (10%)",
+            expr: shop.cat.vatExempt
+              ? "서적류는 부가가치세가 면제됩니다 → 0원"
+              : `(과세가격 ${won(shop.taxable)} + 관세 ${won(shop.duty)}${shop.sct > 0 ? ` + 개소세 ${won(shop.sct)} + 교육세 ${won(shop.edu)}` : ""}) × 10% = ${won(shop.vat)}`,
+          },
+          {
+            label: "세금 합계",
+            expr: `${taxTerms.join(" + ")} = ${won(shop.totalTax)}`,
+          },
+        ]
+      : []),
+    {
+      label: "최종 예상 비용",
+      expr: `물품 ${won(shop.goodsKrw)} + 국제 배송 ${won(shop.intl)} + 세금 ${won(shop.totalTax)} = ${won(shop.final)}`,
+    },
+  ];
 
   return (
     <>
@@ -113,6 +180,8 @@ export default function ShopTab({ jr, ur }) {
           )}
           <Row label="최종 예상 비용 (상품+배송+세금)" value={won(shop.final)} strong top={!shop.taxed} />
         </div>
+
+        <CalcBreakdown steps={breakdownSteps} />
       </section>
 
       <OrderHistoryCard
