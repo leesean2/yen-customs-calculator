@@ -1,11 +1,11 @@
 /**
- * 실시간(장중) 환율 — 하나은행 고시(네이버 금융 경유), 실패 시 일간 소스 폴백
+ * 실시간(장중) 환율 — manana.kr → Yahoo → 일간 소스 순 폴백
  * 무료 일간 소스(er-api 등)의 "하루 1회 갱신" 한계를 보완한다.
  */
-import { fromNaverFinance, fromErApi, fromFrankfurter } from "./_lib/rates.js";
+import { fromManana, fromYahoo, fromErApi, fromFrankfurter } from "./_lib/rates.js";
 
 export default async function handler(req, res) {
-  for (const fn of [fromNaverFinance, fromErApi, fromFrankfurter]) {
+  for (const fn of [fromManana, fromYahoo, fromErApi, fromFrankfurter]) {
     try {
       const rate = await fn();
       res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=300");

@@ -58,11 +58,12 @@ vercel env add RAKUTEN_APP_ID
 - 필요 환경변수: `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`(`npx web-push generate-vapid-keys`),
   `CRON_SECRET`(외부 호출 차단), `BLOB_READ_WRITE_TOKEN`(`vercel blob create-store` 시 자동 등록)
 
-## 환율 소스 (장중 갱신)
+## 환율 소스 (실시간 갱신)
 
-`/api/live-rate` — 하나은행 고시환율(네이버 금융 경유, 장중 수 분 단위 갱신)을 1순위로 쓰고,
-실패 시 open.er-api.com → frankfurter(일 1회)로 폴백. 클라이언트 캐시 10분(`useExchangeRates`).
-비공식 엔드포인트이므로 응답 형식이 바뀌면 자동으로 일간 소스로 넘어간다.
+`/api/live-rate` — manana.kr(야후 기반, 수 분 단위 갱신) → Yahoo Finance 차트 API →
+open.er-api.com → frankfurter(일 1회) 순으로 폴백. 클라이언트 캐시 10분(`useExchangeRates`).
+실시간 소스는 비공식이므로 응답 형식이 바뀌면 자동으로 일간 소스로 넘어간다.
+(네이버 금융 계산기 엔드포인트는 2026-07 현재 500을 반환해 제외)
 
 ## 여행자 간이세율
 

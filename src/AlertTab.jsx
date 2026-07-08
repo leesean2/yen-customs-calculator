@@ -193,7 +193,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
         <p style={descStyle}>
           현재 1엔 = <b style={{ color: T.ink }}>{liveRate > 0 ? liveRate.toFixed(2) + "원" : "—"}</b>.
           목표에 도달하면 앱 상단 배너와 브라우저 알림으로 알려드립니다.
-          (탭이 열려 있는 동안 10분마다 확인 · 장중에는 은행 고시환율이 수 분 단위로 갱신됩니다)
+          (탭이 열려 있는 동안 10분마다 확인 · 실시간 시세 소스라 수 분 단위로 갱신됩니다)
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -337,7 +337,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
       <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
         · 화면 배너·브라우저 알림은 탭이 열려 있는 동안 10분 주기로, 백그라운드 푸시는 서버가 하루 1회 확인해 발송합니다.<br />
-        · 환율은 장중에는 은행 고시(수 분 단위), 그 외 시간에는 일간 소스 기준입니다. 초 단위 시세가 필요하면 증권사·은행 앱을 함께 이용하세요.
+        · 환율은 실시간 시세 소스(수 분 단위) 기준이며, 실패 시 일간 소스로 폴백합니다. 실제 환전가는 은행 스프레드에 따라 다릅니다.
       </p>
     </>
   );

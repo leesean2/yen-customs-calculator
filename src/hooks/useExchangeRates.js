@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 /**
  * 실시간 환율 훅
- * - 1순위: /api/live-rate — 하나은행 고시(네이버 금융 경유), 장중 수 분 단위 갱신
+ * - 1순위: /api/live-rate — 실시간 시세(manana.kr/Yahoo), 수 분 단위 갱신
  * - 폴백: open.er-api.com → api.frankfurter.dev (키 불필요, 일 1회 갱신)
  * - localStorage에 10분 캐시 → 재방문 시 즉시 표시 후 백그라운드 갱신
  *
