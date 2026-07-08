@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
   const sources = await fetchAllSources();
   if (!sources.length) return res.status(502).json({ error: "환율 조회 실패" });
-  const rate = sources[0].jpyKrw; // 1순위(하나은행 고시) 우선
+  const rate = sources[0].jpyKrw; // fetchAllSources 순서상 1순위(실시간 시세) 우선
   const med = median(sources.map((s) => s.jpyKrw));
   const maxDev = Math.max(...sources.map((s) => Math.abs(((s.jpyKrw - med) / med) * 100)));
 

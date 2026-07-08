@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { T, NumField, selectStyle } from "./ui.jsx";
+import { T, NumField, selectStyle, panel } from "./ui.jsx";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
 import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
@@ -38,10 +38,7 @@ function SourceRow({ name, value, dev, error, badge }) {
   );
 }
 
-const sectionStyle = {
-  background: T.card, border: `1.5px solid ${T.line}`,
-  borderRadius: 14, padding: "16px 16px 6px", marginBottom: 14,
-};
+const sectionStyle = { ...panel(), padding: "16px 16px 6px", marginBottom: 14 };
 const titleStyle = { fontSize: 13.5, fontWeight: 800, color: T.ink, marginBottom: 4 };
 const descStyle = { fontSize: 12, color: T.muted, lineHeight: 1.6, margin: "0 0 12px" };
 const smallBtn = (solid) => ({
@@ -137,7 +134,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
   };
 
   // ── 이상 감지 ──
-  const [check, setCheck] = useState({ phase: "idle", rows: [], bank: null, at: null });
+  const [check, setCheck] = useState({ phase: "idle", rows: [], bank: null, live: null, at: null });
   const [myBankRate, setMyBankRate] = useState("");
 
   const runCheck = async () => {

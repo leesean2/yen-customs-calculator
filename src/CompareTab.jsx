@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, yen, NumField, Row, selectStyle } from "./ui.jsx";
+import { T, won, yen, NumField, Row, selectStyle, panel } from "./ui.jsx";
 import { CATEGORIES } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { timeoutSignal } from "./lib/net.js";
@@ -147,10 +147,7 @@ function VerdictStamp({ verdict }) {
   );
 }
 
-const cardStyle = {
-  background: T.card, border: `1.5px solid ${T.line}`,
-  borderRadius: 14, padding: "16px 16px 4px", marginBottom: 14,
-};
+const cardStyle = { ...panel(), padding: "16px 16px 4px", marginBottom: 14 };
 const cardTitle = (flag, text) => (
   <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink, marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
     <span>{flag}</span>{text}
@@ -178,8 +175,9 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
 
   const kr = parseFloat(krPrice) || 0;
   // 판정 조건: 일본 상품가 입력(배송비 기본값만으로 판정 방지) + 환율 로딩 완료
-  // (환율이 0이면 일본 상품가가 0원으로 환산돼 오판정이 난다)
-  const ready = (parseFloat(jpPrice) || 0) > 0 && kr > 0 && jpyKrw > 0;
+  // (엔화 환율이 0이면 일본 상품가가 0원으로, 달러 환율이 0이면 면세 판정이
+  //  불가능해 관부가세가 0원으로 계산돼 각각 오판정이 난다)
+  const ready = (parseFloat(jpPrice) || 0) > 0 && kr > 0 && jpyKrw > 0 && usdKrw > 0;
   const diff = kr - jp.final; // 양수면 직구가 저렴
   const diffPct = ready ? (Math.abs(diff) / kr) * 100 : 0;
   const verdict = !ready ? null : diffPct < 3 ? "even" : diff > 0 ? "japan" : "korea";
@@ -233,8 +231,8 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
 
       {/* 판정 */}
       <section style={{
-        background: T.card, borderRadius: 14, padding: 18,
-        border: `1.5px solid ${verdict === "japan" ? T.green : verdict === "korea" ? T.red : T.line}`,
+        ...panel(verdict === "japan" ? T.green : verdict === "korea" ? T.red : T.line),
+        padding: 18,
       }}>
         {ready ? (
           <>
@@ -262,7 +260,7 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
           </>
         ) : (
           <p style={{ margin: 0, fontSize: 13, color: T.muted, lineHeight: 1.7 }}>
-            {jpyKrw > 0
+            {jpyKrw > 0 && usdKrw > 0
               ? <>양쪽 가격을 검색하거나 직접 입력하면, 세금·배송비까지 합친 <b>직구 최종가</b>와 국내가를 비교해 어느 쪽이 이득인지 판정해 드립니다.</>
               : <>환율을 불러오는 중입니다. 환율이 준비되면 (또는 상단에 직접 입력하면) 비교 판정이 시작됩니다.</>}
           </p>

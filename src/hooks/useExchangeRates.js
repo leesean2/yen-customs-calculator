@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * 실시간 환율 훅
@@ -87,8 +87,15 @@ export default function useExchangeRates() {
   const [rates, setRates] = useState(null); // { jpyKrw, usdKrw, source, apiUpdatedAt }
   const [status, setStatus] = useState("loading"); // loading | live | cached | error
   const [fetchedAt, setFetchedAt] = useState(null);
+  const ctrlRef = useRef(null); // 진행 중 조회 — 새 조회가 시작되면 중단
 
-  const load = useCallback(async (signal) => {
+  const load = useCallback(async () => {
+    // 이전 in-flight 요청을 중단 — 늦게 도착한 옛 응답이 최신 값을 덮어쓰는 레이스 방지
+    ctrlRef.current?.abort();
+    const controller = new AbortController();
+    ctrlRef.current = controller;
+    const signal = controller.signal;
+
     setStatus((s) => (s === "live" ? s : "loading"));
     try {
       let result = null;
@@ -97,16 +104,17 @@ export default function useExchangeRates() {
           result = await fetcher(signal);
           break;
         } catch (err) {
-          if (signal?.aborted) throw err;
+          if (signal.aborted) throw err;
         }
       }
       if (!result) throw new Error("모든 환율 소스 실패");
+      if (signal.aborted) return;
       setRates(result);
       setFetchedAt(Date.now());
       setStatus("live");
       writeCache(result);
     } catch (err) {
-      if (signal?.aborted) return;
+      if (signal.aborted) return;
       const cached = readCache();
       if (cached) {
         setRates(cached.rates);
@@ -119,25 +127,19 @@ export default function useExchangeRates() {
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
     const cached = readCache();
     if (cached) {
       // 캐시 즉시 반영 후, 오래됐으면 백그라운드 갱신
       setRates(cached.rates);
       setFetchedAt(cached.savedAt);
       setStatus("cached");
-      if (Date.now() - cached.savedAt > CACHE_TTL) load(controller.signal);
+      if (Date.now() - cached.savedAt > CACHE_TTL) load();
       else setStatus("live");
     } else {
-      load(controller.signal);
+      load();
     }
-    return () => controller.abort();
+    return () => ctrlRef.current?.abort();
   }, [load]);
 
-  const refresh = useCallback(() => {
-    const controller = new AbortController();
-    load(controller.signal);
-  }, [load]);
-
-  return { rates, status, fetchedAt, refresh };
+  return { rates, status, fetchedAt, refresh: load };
 }

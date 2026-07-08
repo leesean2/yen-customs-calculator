@@ -31,8 +31,11 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const res = await fetch(req);
-          const c = await caches.open(CACHE);
-          c.put("/", res.clone());
+          // 오류 응답(5xx 등)을 앱 셸로 저장하면 오프라인 화면이 오염된다
+          if (res.ok) {
+            const c = await caches.open(CACHE);
+            c.put("/", res.clone());
+          }
           return res;
         } catch {
           return (await caches.match("/")) || Response.error();
