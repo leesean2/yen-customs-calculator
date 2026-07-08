@@ -53,8 +53,9 @@ function SearchBox({ placeholder, path, priceLabel, onPick, notConfiguredHint, e
           value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder}
           onKeyDown={(e) => e.key === "Enter" && run()}
           style={{
+            // fontSize 16: iOS Safari 포커스 확대 방지
             flex: 1, minWidth: 0, border: `1.5px solid ${T.line}`, borderRadius: 10,
-            background: "#FCFDFB", padding: "10px 12px", fontSize: 14, fontWeight: 600,
+            background: "#FCFDFB", padding: "10px 12px", fontSize: 16, fontWeight: 600,
             color: T.ink, outline: "none",
           }}
         />

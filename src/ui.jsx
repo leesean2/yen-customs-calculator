@@ -50,8 +50,9 @@ export function TextField({ label, value, onChange, placeholder, hint }) {
         type="text" value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         style={{
+          // fontSize 16 미만이면 iOS Safari가 포커스 시 화면을 확대한다 — 모바일에서 16 유지
           width: "100%", border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB",
-          padding: "11px 12px", fontSize: 15, fontWeight: 600, color: T.ink, outline: "none",
+          padding: "11px 12px", fontSize: 16, fontWeight: 600, color: T.ink, outline: "none",
         }}
       />
       {hint && <span style={{ display: "block", fontSize: 11.5, color: T.muted, marginTop: 4 }}>{hint}</span>}
@@ -67,7 +68,8 @@ export const panel = (borderColor = T.line) => ({
 });
 
 export const selectStyle = {
-  width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
+  // fontSize 16: iOS Safari 포커스 확대 방지
+  width: "100%", padding: "12px 12px", fontSize: 16, fontWeight: 600, color: T.ink,
   border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
 };
 
