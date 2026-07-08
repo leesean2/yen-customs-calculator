@@ -33,7 +33,7 @@ export default async function handler(req, res) {
           return res.status(200).json({
             configured: true,
             source: "한국수출입은행 고시 (매매기준율)",
-            date: ymd,
+            date: `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6)}`,
             // deal_bas_r은 100엔 기준 매매기준율 → 1엔당 원으로 환산
             jpyKrw: parseFloat(jpy.deal_bas_r.replace(/,/g, "")) / 100,
           });

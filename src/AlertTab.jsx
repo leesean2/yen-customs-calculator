@@ -61,13 +61,18 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
   const runCheck = async () => {
     setCheck((c) => ({ ...c, phase: "loading" }));
-    const [rows, bank] = await Promise.all([
-      fetchJpyKrwAll(),
-      fetch("/api/bank-rate", { signal: timeoutSignal(10_000) })
-        .then((r) => r.json())
-        .catch(() => null),
-    ]);
-    setCheck({ phase: "done", rows, bank, at: Date.now() });
+    try {
+      const [rows, bank] = await Promise.all([
+        fetchJpyKrwAll(),
+        fetch("/api/bank-rate", { signal: timeoutSignal(10_000) })
+          .then((r) => r.json())
+          .catch(() => null),
+      ]);
+      setCheck({ phase: "done", rows, bank, at: Date.now() });
+    } catch {
+      // 예기치 못한 실패로 "검사 중"에 잠기지 않도록 — 전 소스 실패로 처리
+      setCheck({ phase: "done", rows: [], bank: null, at: Date.now() });
+    }
   };
   useEffect(() => { runCheck(); }, []);
 
@@ -212,9 +217,9 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
         <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 12 }}>
           <NumField
-            label="내 은행/앱에 표시된 환율 (선택)" suffix="원 / 1엔"
+            label="내 은행/앱에 표시된 환율 (선택)" suffix="원"
             value={myBankRate} onChange={setMyBankRate}
-            hint="토스·하나·신한 등 앱에 보이는 엔화 환율을 입력하면 시장 기준과 비교합니다"
+            hint="토스·하나·신한 등 앱에 보이는 엔화 환율을 입력하면 시장 기준과 비교합니다 (1엔·100엔 기준 모두 자동 인식)"
           />
           {my > 0 && !isNaN(myDev) && (
             <div style={{

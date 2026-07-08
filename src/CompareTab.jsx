@@ -177,8 +177,9 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
   );
 
   const kr = parseFloat(krPrice) || 0;
-  // 배송비 기본값만으로 판정되지 않도록 일본 상품가 입력을 필수로 요구
-  const ready = (parseFloat(jpPrice) || 0) > 0 && kr > 0;
+  // 판정 조건: 일본 상품가 입력(배송비 기본값만으로 판정 방지) + 환율 로딩 완료
+  // (환율이 0이면 일본 상품가가 0원으로 환산돼 오판정이 난다)
+  const ready = (parseFloat(jpPrice) || 0) > 0 && kr > 0 && jpyKrw > 0;
   const diff = kr - jp.final; // 양수면 직구가 저렴
   const diffPct = ready ? (Math.abs(diff) / kr) * 100 : 0;
   const verdict = !ready ? null : diffPct < 3 ? "even" : diff > 0 ? "japan" : "korea";
@@ -225,6 +226,10 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
           priceLabel={won}
           onPick={(p) => setKrPrice(String(p))}
           notConfiguredHint="(Vercel 환경변수 NAVER_CLIENT_ID/SECRET 필요)"
+          extLinks={[
+            { label: "네이버쇼핑", make: (q) => q ? `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(q)}` : "https://shopping.naver.com/" },
+            { label: "다나와", make: (q) => q ? `https://search.danawa.com/dsearch.php?query=${encodeURIComponent(q)}` : "https://www.danawa.com/" },
+          ]}
         />
         <NumField label="국내 구매가 (배송비 포함)" suffix="₩" value={krPrice} onChange={setKrPrice} />
       </section>
@@ -260,8 +265,9 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
           </>
         ) : (
           <p style={{ margin: 0, fontSize: 13, color: T.muted, lineHeight: 1.7 }}>
-            양쪽 가격을 검색하거나 직접 입력하면, 세금·배송비까지 합친 <b>직구 최종가</b>와 국내가를 비교해
-            어느 쪽이 이득인지 판정해 드립니다.
+            {jpyKrw > 0
+              ? <>양쪽 가격을 검색하거나 직접 입력하면, 세금·배송비까지 합친 <b>직구 최종가</b>와 국내가를 비교해 어느 쪽이 이득인지 판정해 드립니다.</>
+              : <>환율을 불러오는 중입니다. 환율이 준비되면 (또는 상단에 직접 입력하면) 비교 판정이 시작됩니다.</>}
           </p>
         )}
       </section>
