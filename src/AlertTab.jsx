@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { T, NumField } from "./ui.jsx";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
+import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
 
 /* ──────────────────────────────────────────────
    환율 알림 · 이상 감지 탭
@@ -42,6 +43,85 @@ const sectionStyle = {
 };
 const titleStyle = { fontSize: 13.5, fontWeight: 800, color: T.ink, marginBottom: 4 };
 const descStyle = { fontSize: 12, color: T.muted, lineHeight: 1.6, margin: "0 0 12px" };
+const smallBtn = (solid) => ({
+  border: `1px solid ${T.indigo}`, borderRadius: 7, padding: "5px 12px",
+  fontSize: 12, fontWeight: 700, cursor: "pointer",
+  background: solid ? T.indigo : "transparent", color: solid ? "#fff" : T.indigo,
+});
+
+/* 백그라운드 푸시 구독 — 탭을 닫아도 서버(크론)가 하루 1회 확인 후 발송 */
+function PushBlock({ config }) {
+  const [st, setSt] = useState({ phase: "checking", error: null });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!pushSupported()) return mounted && setSt({ phase: "unsupported" });
+      const sub = await getPushSubscription();
+      if (mounted) setSt({ phase: sub ? "subscribed" : "idle" });
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const doSubscribe = async () => {
+    setSt({ phase: "busy" });
+    try {
+      if (Notification.permission !== "granted") {
+        const p = await Notification.requestPermission();
+        if (p !== "granted") throw new Error("브라우저 알림 권한이 필요합니다");
+      }
+      await subscribePush({ target: config.target, dir: config.dir, anomaly: true });
+      setSt({ phase: "subscribed" });
+    } catch (e) {
+      setSt({ phase: "error", error: e.message });
+    }
+  };
+  const doUnsubscribe = async () => {
+    setSt({ phase: "busy" });
+    try {
+      await unsubscribePush();
+      setSt({ phase: "idle" });
+    } catch (e) {
+      setSt({ phase: "error", error: e.message });
+    }
+  };
+
+  return (
+    <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 12, marginBottom: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: T.ink, marginBottom: 4 }}>📲 백그라운드 푸시 (탭을 닫아도 알림)</div>
+      <p style={{ ...descStyle, margin: "0 0 10px" }}>
+        구독하면 서버가 하루 1회(오전 10시경) 환율을 확인해 목표 도달·이상 감지 시 푸시를 보냅니다.
+        같은 알림은 하루 1회만 발송됩니다. 목표 환율을 바꾸면 &lsquo;목표 다시 반영&rsquo;을 눌러 주세요.
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        {st.phase === "checking" && <span style={{ fontSize: 12, color: T.muted }}>구독 상태 확인 중…</span>}
+        {st.phase === "unsupported" && <span style={{ fontSize: 12, color: T.muted }}>이 브라우저는 웹 푸시를 지원하지 않습니다. (iOS는 홈 화면에 추가 후 지원)</span>}
+        {st.phase === "busy" && <span style={{ fontSize: 12, color: T.muted }}>처리 중…</span>}
+        {st.phase === "idle" && (
+          <button onClick={doSubscribe} style={smallBtn(true)}>푸시 구독하기</button>
+        )}
+        {st.phase === "subscribed" && (
+          <>
+            <span style={{ fontSize: 12, color: T.green, fontWeight: 700 }}>✓ 푸시 구독 중</span>
+            <button onClick={doSubscribe} style={smallBtn(false)}>목표 다시 반영</button>
+            <button onClick={doUnsubscribe} style={{ ...smallBtn(false), borderColor: T.red, color: T.red }}>구독 해제</button>
+          </>
+        )}
+        {st.phase === "error" && (
+          <>
+            <span style={{ fontSize: 12, color: T.red }}>{st.error}</span>
+            <button onClick={doSubscribe} style={smallBtn(false)}>다시 시도</button>
+          </>
+        )}
+      </div>
+      {(st.phase === "idle" || st.phase === "subscribed") && !(parseFloat(config.target) > 0) && (
+        <p style={{ fontSize: 11, color: T.muted, margin: "0 0 10px" }}>
+          목표 환율이 비어 있으면 이상 감지 경고만 푸시로 받습니다.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function AlertTab({ liveRate, rateAlert }) {
   const { config, update, triggered } = rateAlert;
@@ -62,16 +142,19 @@ export default function AlertTab({ liveRate, rateAlert }) {
   const runCheck = async () => {
     setCheck((c) => ({ ...c, phase: "loading" }));
     try {
-      const [rows, bank] = await Promise.all([
+      const [rows, bank, live] = await Promise.all([
         fetchJpyKrwAll(),
         fetch("/api/bank-rate", { signal: timeoutSignal(10_000) })
           .then((r) => r.json())
           .catch(() => null),
+        fetch("/api/live-rate", { signal: timeoutSignal(10_000) })
+          .then((r) => (r.headers.get("content-type")?.includes("json") ? r.json() : null))
+          .catch(() => null),
       ]);
-      setCheck({ phase: "done", rows, bank, at: Date.now() });
+      setCheck({ phase: "done", rows, bank, live, at: Date.now() });
     } catch {
       // 예기치 못한 실패로 "검사 중"에 잠기지 않도록 — 전 소스 실패로 처리
-      setCheck({ phase: "done", rows: [], bank: null, at: Date.now() });
+      setCheck({ phase: "done", rows: [], bank: null, live: null, at: Date.now() });
     }
   };
   useEffect(() => { runCheck(); }, []);
@@ -83,14 +166,16 @@ export default function AlertTab({ liveRate, rateAlert }) {
       r.ok ? { ...r, dev: deviationPct(r.jpyKrw, med) } : r
     );
     const bankDev = check.bank?.jpyKrw ? deviationPct(check.bank.jpyKrw, med) : NaN;
+    const liveDev = check.live?.jpyKrw ? deviationPct(check.live.jpyKrw, med) : NaN;
     const devs = [
       ...rows.filter((r) => r.ok).map((r) => Math.abs(r.dev)),
       ...(isNaN(bankDev) ? [] : [Math.abs(bankDev)]),
+      ...(isNaN(liveDev) ? [] : [Math.abs(liveDev)]),
     ];
     const maxDev = devs.length ? Math.max(...devs) : NaN;
     const level =
       ok.length < 2 ? "insufficient" : maxDev < 1 ? "ok" : maxDev < 3 ? "warn" : "danger";
-    return { rows, med, bankDev, maxDev, level, okCount: ok.length };
+    return { rows, med, bankDev, liveDev, maxDev, level, okCount: ok.length };
   }, [check]);
 
   // 은행 앱은 100엔 기준(예: 945원)으로 표시하는 곳이 많다 — 1엔당 원화가 100원을
@@ -108,7 +193,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
         <p style={descStyle}>
           현재 1엔 = <b style={{ color: T.ink }}>{liveRate > 0 ? liveRate.toFixed(2) + "원" : "—"}</b>.
           목표에 도달하면 앱 상단 배너와 브라우저 알림으로 알려드립니다.
-          (탭이 열려 있는 동안 10분마다 확인 · 환율 소스는 하루 1회 갱신)
+          (탭이 열려 있는 동안 10분마다 확인 · 장중에는 은행 고시환율이 수 분 단위로 갱신됩니다)
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -153,6 +238,8 @@ export default function AlertTab({ liveRate, rateAlert }) {
             🎯 목표 도달! 현재 {liveRate.toFixed(2)}원 — 목표 {config.target}원 {config.dir === "below" ? "이하" : "이상"}
           </div>
         )}
+
+        <PushBlock config={config} />
       </section>
 
       {/* ── 2. 환율 이상 감지 ── */}
@@ -184,6 +271,9 @@ export default function AlertTab({ liveRate, rateAlert }) {
               {analysis.rows.map((r) => (
                 <SourceRow key={r.name} name={r.name} value={r.jpyKrw} dev={r.dev} error={r.ok ? null : "조회 실패"} />
               ))}
+              {check.live?.jpyKrw && (
+                <SourceRow name={check.live.source} badge="장중" value={check.live.jpyKrw} dev={analysis.liveDev} />
+              )}
               {check.bank?.jpyKrw && (
                 <SourceRow name={check.bank.source} badge={check.bank.date} value={check.bank.jpyKrw} dev={analysis.bankDev} />
               )}
@@ -246,8 +336,8 @@ export default function AlertTab({ liveRate, rateAlert }) {
       </section>
 
       <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
-        · 알림은 이 페이지(탭)가 브라우저에 열려 있는 동안 동작합니다. 백그라운드 푸시는 지원하지 않습니다.<br />
-        · 무료 환율 소스는 대부분 하루 1회 갱신되므로, 초 단위 시세 알림이 필요하면 증권사·은행 앱을 함께 이용하세요.
+        · 화면 배너·브라우저 알림은 탭이 열려 있는 동안 10분 주기로, 백그라운드 푸시는 서버가 하루 1회 확인해 발송합니다.<br />
+        · 환율은 장중에는 은행 고시(수 분 단위), 그 외 시간에는 일간 소스 기준입니다. 초 단위 시세가 필요하면 증권사·은행 앱을 함께 이용하세요.
       </p>
     </>
   );

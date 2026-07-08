@@ -4,6 +4,7 @@ import {
   CATEGORIES,
   DUTY_FREE_LIMIT_USD,
   TRAVELER_LIMIT_USD,
+  TRAVEL_RATES,
 } from "./data/categories.js";
 import { T, won, usd, NumField, Row } from "./ui.jsx";
 import { calcImportCost } from "./lib/customs.js";
@@ -125,6 +126,7 @@ export default function App() {
   // ── 여행 입력 ──
   const [travelTotal, setTravelTotal] = useState("150000");
   const [selfReport, setSelfReport] = useState(true);
+  const [travelRateId, setTravelRateId] = useState("single20");
 
   const jr = parseFloat(jpyRate) || 0;
   const ur = parseFloat(usdRate) || 0;
@@ -146,15 +148,20 @@ export default function App() {
   );
 
   const travel = useMemo(() => {
+    const rate = TRAVEL_RATES.find((r) => r.id === travelRateId);
     const totalKrw = (parseFloat(travelTotal) || 0) * jr;
     const totalUsd = ur ? totalKrw / ur : NaN;
     const limitKrw = TRAVELER_LIMIT_USD * ur;
     const over = Math.max(0, totalKrw - limitKrw);
+    const overUsd = ur ? over / ur : NaN;
     const taxed = ur ? over > 0 : false;
-    let tax = taxed ? over * 0.2 : 0;
-    let discount = taxed && selfReport ? Math.min(tax * 0.3, 200_000) : 0;
-    return { totalKrw, totalUsd, limitKrw, over, taxed, tax, discount, finalTax: tax - discount };
-  }, [travelTotal, selfReport, jr, ur]);
+    const special = !rate.calc; // 주류·담배 — 간이세율 미적용
+    // 단일간이세율(20%)은 과세대상 합계 USD 1,000 이하일 때만 선택 가능
+    const singleLimitOver = rate.id === "single20" && overUsd > 1000;
+    let tax = taxed && rate.calc ? rate.calc(over) : 0;
+    let discount = taxed && !special && selfReport ? Math.min(tax * 0.3, 200_000) : 0;
+    return { rate, totalKrw, totalUsd, limitKrw, over, overUsd, taxed, special, singleLimitOver, tax, discount, finalTax: tax - discount };
+  }, [travelTotal, selfReport, travelRateId, jr, ur]);
 
   const tabBtn = (id, label) => (
     <button key={id} onClick={() => setTab(id)} style={{
@@ -312,6 +319,27 @@ export default function App() {
           <>
             <section style={{ background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 14, padding: "18px 18px 6px", marginBottom: 16 }}>
               <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입하는 물품 전체" />
+              <label style={{ display: "block", marginBottom: 14 }}>
+                <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>주요 품목 (간이세율)</span>
+                <select value={travelRateId} onChange={(e) => setTravelRateId(e.target.value)} style={{
+                  width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
+                  border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
+                }}>
+                  {TRAVEL_RATES.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+                {travel.rate.note && (
+                  <span style={{ display: "block", fontSize: 12, color: travel.special ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
+                    {travel.rate.note}
+                  </span>
+                )}
+                {travel.singleLimitOver && (
+                  <span style={{ display: "block", fontSize: 12, color: T.red, marginTop: 6, lineHeight: 1.5 }}>
+                    과세대상이 미화 1,000달러(약 {won(1000 * ur)})를 초과해 단일간이세율(20%)을 적용할 수 없습니다. 위에서 실제 품목을 선택하세요.
+                  </span>
+                )}
+              </label>
               <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
                 <input type="checkbox" checked={selfReport} onChange={(e) => setSelfReport(e.target.checked)} style={{ width: 18, height: 18, accentColor: T.indigo }} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>세관에 자진신고 (세액 30% 감면, 최대 20만원)</span>
@@ -338,12 +366,19 @@ export default function App() {
 
               <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 8 }}>
                 {travel.taxed ? (
-                  <>
-                    <Row label="면세한도 초과분" value={won(travel.over)} />
-                    <Row label="예상 세액 (간이세율 20% 가정)" value={won(travel.tax)} />
-                    {travel.discount > 0 && <Row label="자진신고 감면 (−30%)" value={"−" + won(travel.discount)} />}
-                    <Row label="납부 예상 세액" value={won(travel.finalTax)} strong red top />
-                  </>
+                  travel.special ? (
+                    <p style={{ margin: "6px 0 2px", fontSize: 13, color: T.red, fontWeight: 600, lineHeight: 1.6 }}>
+                      주류·담배는 간이세율이 아닌 주세·담배소비세 등 별도 세율이 적용되어 여기서 계산할 수 없습니다.
+                      관세청 <a href="https://www.customs.go.kr/kcs/ad/tax/ItemTaxCalculation.do" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>휴대품 예상세액 조회</a>를 이용하세요.
+                    </p>
+                  ) : (
+                    <>
+                      <Row label="면세한도 초과분" value={won(travel.over)} />
+                      <Row label={`예상 세액 (간이세율 ${travel.rate.rateText})`} value={won(travel.tax)} />
+                      {travel.discount > 0 && <Row label="자진신고 감면 (−30%)" value={"−" + won(travel.discount)} />}
+                      <Row label="납부 예상 세액" value={won(travel.finalTax)} strong red top />
+                    </>
+                  )
                 ) : (
                   <Row label="납부 예상 세액" value="0원" strong top />
                 )}
@@ -351,7 +386,7 @@ export default function App() {
             </section>
 
             <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
-              · 간이세율은 품목별로 다르며(대략 15~55%), 여기서는 일반적인 20%를 가정했습니다.<br />
+              · 간이세율은 관세법 시행령 별표2 기준이며, 여러 품목 혼합 구매 시 실제 세액은 품목별 계산에 따라 달라집니다.<br />
               · 술(2병·2L·$400 이내)·담배(궐련 200개비)·향수(100mL)는 기본 면세한도와 별도로 적용됩니다.<br />
               · 신고 대상을 신고하지 않고 적발되면 세액의 40%(반복 시 60%) 가산세가 부과됩니다.
             </p>

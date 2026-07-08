@@ -2,14 +2,30 @@ import { useCallback, useEffect, useState } from "react";
 
 /**
  * 실시간 환율 훅
- * - 기본 소스: open.er-api.com (키 불필요, CORS 허용, 일 1회 갱신)
- * - 폴백 소스: api.frankfurter.dev (ECB 고시, 키 불필요)
- * - localStorage에 1시간 캐시 → 재방문 시 즉시 표시 후 백그라운드 갱신
+ * - 1순위: /api/live-rate — 하나은행 고시(네이버 금융 경유), 장중 수 분 단위 갱신
+ * - 폴백: open.er-api.com → api.frankfurter.dev (키 불필요, 일 1회 갱신)
+ * - localStorage에 10분 캐시 → 재방문 시 즉시 표시 후 백그라운드 갱신
  *
  * 반환 rates: { jpyKrw: 1엔당 원, usdKrw: 1달러당 원 }
  */
 const CACHE_KEY = "yen-calc:rates:v1";
-const CACHE_TTL = 60 * 60 * 1000; // 1시간
+const CACHE_TTL = 10 * 60 * 1000; // 10분 (장중 소스에 맞춰 단축)
+
+async function fetchFromLiveApi(signal) {
+  const res = await fetch("/api/live-rate", { signal });
+  // API가 없는 환경(vite dev)에서는 HTML이 돌아온다
+  if (!res.ok || !res.headers.get("content-type")?.includes("json")) {
+    throw new Error("live-rate 사용 불가");
+  }
+  const data = await res.json();
+  if (!data.jpyKrw || !data.usdKrw) throw new Error("live-rate: 응답 형식 오류");
+  return {
+    usdKrw: data.usdKrw,
+    jpyKrw: data.jpyKrw,
+    source: data.source,
+    apiUpdatedAt: data.at ?? null,
+  };
+}
 
 async function fetchFromErApi(signal) {
   const res = await fetch("https://open.er-api.com/v6/latest/USD", { signal });
@@ -75,13 +91,16 @@ export default function useExchangeRates() {
   const load = useCallback(async (signal) => {
     setStatus((s) => (s === "live" ? s : "loading"));
     try {
-      let result;
-      try {
-        result = await fetchFromErApi(signal);
-      } catch (primaryErr) {
-        if (signal?.aborted) throw primaryErr;
-        result = await fetchFromFrankfurter(signal);
+      let result = null;
+      for (const fetcher of [fetchFromLiveApi, fetchFromErApi, fetchFromFrankfurter]) {
+        try {
+          result = await fetcher(signal);
+          break;
+        } catch (err) {
+          if (signal?.aborted) throw err;
+        }
       }
+      if (!result) throw new Error("모든 환율 소스 실패");
       setRates(result);
       setFetchedAt(Date.now());
       setStatus("live");

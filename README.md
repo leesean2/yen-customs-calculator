@@ -47,7 +47,28 @@ vercel env add RAKUTEN_APP_ID
   `api/bank-rate.js`가 매매기준율을 받아 비교 목록에 자동 표시.
   키는 [koreaexim.go.kr 오픈API](https://www.koreaexim.go.kr/ir/HPHKIR019M01)에서 무료 발급.
 
-무료 환율 소스는 대부분 하루 1회 갱신되므로 초 단위 시세 알림은 아니다. 백그라운드 웹푸시는 미지원(탭이 열려 있어야 동작).
+## 웹 푸시 (백그라운드 알림)
+
+탭을 닫아도 알림을 받도록 확장됨:
+
+- **클라이언트**: `public/sw.js`(서비스워커) + `src/lib/push.js` — 환율 알림 탭에서 구독/해제
+- **서버**: `api/push.js`(구독 CRUD, Vercel Blob `push-subs.json`에 저장) +
+  `api/cron/check-rates.js`(Vercel Cron이 호출 — 목표 도달·이상 감지 시 web-push 발송, 20시간 쿨다운,
+  410 응답 구독 자동 정리). 크론 일정은 `vercel.json`(매일 01:00 UTC = 10:00 KST — **Hobby 플랜은 하루 1회 제한**).
+- 필요 환경변수: `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`(`npx web-push generate-vapid-keys`),
+  `CRON_SECRET`(외부 호출 차단), `BLOB_READ_WRITE_TOKEN`(`vercel blob create-store` 시 자동 등록)
+
+## 환율 소스 (장중 갱신)
+
+`/api/live-rate` — 하나은행 고시환율(네이버 금융 경유, 장중 수 분 단위 갱신)을 1순위로 쓰고,
+실패 시 open.er-api.com → frankfurter(일 1회)로 폴백. 클라이언트 캐시 10분(`useExchangeRates`).
+비공식 엔드포인트이므로 응답 형식이 바뀌면 자동으로 일간 소스로 넘어간다.
+
+## 여행자 간이세율
+
+단일 20% 가정을 관세법 시행령 별표2 기준 품목별 세율로 확장 (`TRAVEL_RATES` in `src/data/categories.js`):
+단일간이세율 20%(과세대상 합계 $1,000 이하), 그 밖의 물품 15%, 의류·신발·가죽·섬유 18%, 모피 19%,
+고급시계·가방 및 보석·귀금속은 15% + 기준액(각 192.3만원/480.8만원) 초과분 45%, 주류·담배는 간이세율 미적용 안내.
 
 ## 환율 API
 
