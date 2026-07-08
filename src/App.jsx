@@ -86,9 +86,10 @@ export default function App() {
   const [overridden, setOverridden] = useState(false);
 
   // API 값 도착 시, 사용자가 수동 수정하지 않았다면 자동 반영
+  // 입력·표시는 국내 관행대로 100엔 기준, 내부 계산(jr)은 1엔당 원화
   useEffect(() => {
     if (rates && !overridden) {
-      setJpyRate(rates.jpyKrw.toFixed(2));
+      setJpyRate((rates.jpyKrw * 100).toFixed(2));
       setUsdRate(rates.usdKrw.toFixed(0));
     }
   }, [rates, overridden]);
@@ -100,14 +101,14 @@ export default function App() {
   const resetToLive = () => {
     setOverridden(false);
     if (rates) {
-      setJpyRate(rates.jpyKrw.toFixed(2));
+      setJpyRate((rates.jpyKrw * 100).toFixed(2));
       setUsdRate(rates.usdKrw.toFixed(0));
     } else {
       refresh();
     }
   };
 
-  const jr = parseFloat(jpyRate) || 0;
+  const jr = (parseFloat(jpyRate) || 0) / 100;
   const ur = parseFloat(usdRate) || 0;
 
   // 목표 환율 알림 — 수동 입력값이 아닌 실시간 API 환율 기준으로 판정
@@ -147,7 +148,7 @@ export default function App() {
             />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <NumField label="JPY → KRW" suffix="원 / 1엔" value={jpyRate} onChange={editRate(setJpyRate)} />
+            <NumField label="JPY → KRW" suffix="원 / 100엔" value={jpyRate} onChange={editRate(setJpyRate)} />
             <NumField label="USD → KRW" suffix="원 / 1달러" value={usdRate} onChange={editRate(setUsdRate)} hint="면세한도(달러) 환산에 사용" />
           </div>
         </section>
@@ -159,7 +160,7 @@ export default function App() {
             background: T.greenSoft, border: `1.5px solid ${T.green}`, borderRadius: 12,
             padding: "10px 14px", marginBottom: 14, fontSize: 13.5, color: T.green, fontWeight: 700,
           }}>
-            <span>🔔 목표 환율 도달 — 현재 1엔 = {liveJpy.toFixed(2)}원 (목표 {rateAlert.config.target}원 {rateAlert.config.dir === "below" ? "이하" : "이상"})</span>
+            <span>🔔 목표 환율 도달 — 현재 100엔 = {(liveJpy * 100).toFixed(2)}원 (목표 {rateAlert.config.target}원 {rateAlert.config.dir === "below" ? "이하" : "이상"})</span>
             <span style={{ flex: 1 }} />
             <button onClick={() => rateAlert.update({ enabled: false })} style={badgeBtnStyle}>
               알림 끄기

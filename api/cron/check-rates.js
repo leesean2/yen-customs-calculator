@@ -47,10 +47,13 @@ export default async function handler(req, res) {
       }
     };
 
-    if (s.target > 0 && (s.dir === "below" ? rate <= s.target : rate >= s.target)) {
+    // 목표가는 100엔 기준 원화 — 1엔당 원화가 100원을 넘을 일은 없으므로
+    // 100 미만이면 예전(1엔 기준) 구독으로 보고 100엔 기준으로 환산해 비교한다
+    const target100 = s.target >= 100 ? s.target : s.target * 100;
+    if (s.target > 0 && (s.dir === "below" ? rate * 100 <= target100 : rate * 100 >= target100)) {
       await trySend("target", {
         title: "엔화 목표 환율 도달 🔔",
-        body: `현재 1엔 = ${rate.toFixed(2)}원 — 목표 ${s.target}원 ${s.dir === "below" ? "이하" : "이상"} (${sources[0].source})`,
+        body: `현재 100엔 = ${(rate * 100).toFixed(2)}원 — 목표 ${+target100.toFixed(2)}원 ${s.dir === "below" ? "이하" : "이상"} (${sources[0].source})`,
         url: "/",
       });
     }

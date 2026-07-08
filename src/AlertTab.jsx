@@ -11,7 +11,8 @@ import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } fr
       (토스뱅크 반값 엔화 오류 사례처럼 특정 고시가 시장과 크게 벌어진 경우 경고)
    ────────────────────────────────────────────── */
 
-const rate4 = (n) => (isNaN(n) ? "—" : n.toFixed(4) + "원");
+/* 내부 값은 1엔당 원화 — 표시는 국내 관행대로 100엔 기준 */
+const rate100 = (n) => (isNaN(n) ? "—" : (n * 100).toFixed(2) + "원");
 
 function devColor(absPct) {
   return absPct < 1 ? T.green : absPct < 3 ? "#C79A2A" : T.red;
@@ -27,7 +28,7 @@ function SourceRow({ name, value, dev, error, badge }) {
         <span style={{ fontSize: 12, color: T.red }}>{error}</span>
       ) : (
         <>
-          <span style={{ fontSize: 13.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{rate4(value)}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{rate100(value)}</span>
           <span style={{ fontSize: 11.5, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: devColor(Math.abs(dev)), width: 58, textAlign: "right" }}>
             {isNaN(dev) ? "" : (dev > 0 ? "+" : "") + dev.toFixed(2) + "%"}
           </span>
@@ -178,11 +179,11 @@ export default function AlertTab({ liveRate, rateAlert }) {
     return { rows, med, bankDev, liveDev, maxDev, level, okCount: ok.length };
   }, [check]);
 
-  // 은행 앱은 100엔 기준(예: 945원)으로 표시하는 곳이 많다 — 1엔당 원화가 100원을
-  // 넘을 일은 없으므로 100 이상이면 100엔 기준으로 보고 환산해 비교한다
+  // 입력은 100엔 기준이 기본 — 1엔당 원화가 100원을 넘을 일은 없으므로
+  // 100 미만이면 1엔 기준 입력으로 보고 자동 환산해 비교한다 (내부 비교값은 1엔당 원)
   const myRaw = parseFloat(myBankRate);
-  const myPer100 = myRaw >= 100;
-  const my = myPer100 ? myRaw / 100 : myRaw;
+  const myPer1 = myRaw > 0 && myRaw < 100;
+  const my = myPer1 ? myRaw : myRaw / 100;
   const myDev = my > 0 ? deviationPct(my, analysis.med) : NaN;
 
   return (
@@ -191,13 +192,13 @@ export default function AlertTab({ liveRate, rateAlert }) {
       <section style={sectionStyle}>
         <div style={titleStyle}>🔔 목표 환율 알림</div>
         <p style={descStyle}>
-          현재 1엔 = <b style={{ color: T.ink }}>{liveRate > 0 ? liveRate.toFixed(2) + "원" : "—"}</b>.
+          현재 100엔 = <b style={{ color: T.ink }}>{liveRate > 0 ? (liveRate * 100).toFixed(2) + "원" : "—"}</b>.
           목표에 도달하면 앱 상단 배너와 브라우저 알림으로 알려드립니다.
           (탭이 열려 있는 동안 10분마다 확인 · 실시간 시세 소스라 수 분 단위로 갱신됩니다)
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <NumField label="목표 환율" suffix="원 / 1엔" value={config.target} onChange={(v) => update({ target: v })} />
+          <NumField label="목표 환율" suffix="원 / 100엔" value={config.target} onChange={(v) => update({ target: v })} />
           <label style={{ display: "block", marginBottom: 14 }}>
             <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>조건</span>
             <select value={config.dir} onChange={(e) => update({ dir: e.target.value })} style={selectStyle}>
@@ -232,7 +233,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
         {triggered && (
           <div style={{ background: T.greenSoft, border: `1.5px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13.5, fontWeight: 700, color: T.green }}>
-            🎯 목표 도달! 현재 {liveRate.toFixed(2)}원 — 목표 {config.target}원 {config.dir === "below" ? "이하" : "이상"}
+            🎯 목표 도달! 현재 100엔 = {(liveRate * 100).toFixed(2)}원 — 목표 {config.target}원 {config.dir === "below" ? "이하" : "이상"}
           </div>
         )}
 
@@ -262,7 +263,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
                 <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: T.ink }}>
                   시장 기준 (중앙값 · 소스 {analysis.okCount}곳)
                 </span>
-                <span style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{rate4(analysis.med)}</span>
+                <span style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{rate100(analysis.med)}</span>
                 <span style={{ width: 58 }} />
               </div>
               {analysis.rows.map((r) => (
@@ -304,9 +305,9 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
         <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 12 }}>
           <NumField
-            label="내 은행/앱에 표시된 환율 (선택)" suffix="원"
+            label="내 은행/앱에 표시된 환율 (선택)" suffix="원 / 100엔"
             value={myBankRate} onChange={setMyBankRate}
-            hint="토스·하나·신한 등 앱에 보이는 엔화 환율을 입력하면 시장 기준과 비교합니다 (1엔·100엔 기준 모두 자동 인식)"
+            hint="토스·하나·신한 등 앱에 보이는 100엔 기준 환율을 입력하면 시장 기준과 비교합니다 (1엔 기준 입력도 자동 인식)"
           />
           {my > 0 && !isNaN(myDev) && (
             <div style={{
@@ -314,9 +315,9 @@ export default function AlertTab({ liveRate, rateAlert }) {
               background: Math.abs(myDev) < 3 ? T.greenSoft : T.redSoft,
               color: Math.abs(myDev) < 3 ? T.green : T.red, fontWeight: 600,
             }}>
-              {myPer100 && (
+              {myPer1 && (
                 <span style={{ display: "block", fontSize: 11.5, opacity: 0.85, marginBottom: 4 }}>
-                  100엔 기준 환율로 보여 1엔당 {my.toFixed(4)}원으로 환산해 비교했습니다.
+                  1엔 기준 환율로 보여 100엔당 {(my * 100).toFixed(2)}원으로 환산해 비교했습니다.
                 </span>
               )}
               {Math.abs(myDev) < 3 ? (
