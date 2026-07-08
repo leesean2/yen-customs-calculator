@@ -1,0 +1,43 @@
+/**
+ * 계산 결과 공유 — 직구 탭 입력값을 URL 쿼리에 담아, 링크를 받은 사람이
+ * 같은 계산을 그대로 재현할 수 있게 한다.
+ * 환율(j·u)도 함께 담는다: 받은 시점의 실시간 환율로 계산하면 보낸 사람이
+ * 본 결과와 달라지므로, 공유 링크는 '보낸 시점의 계산 스냅샷'이어야 한다.
+ * 판매자·상품명은 개인 기록이므로 의도적으로 담지 않는다.
+ *
+ * 파라미터: p 상품가격(¥) · l 일본 내 배송비(¥) · i 국제 배송비(₩)
+ *          c 품목 id · j 환율(원/100엔) · u 환율(원/달러)
+ */
+import { CATEGORIES } from "../data/categories.js";
+
+/** 주소창 쿼리에서 공유 입력값을 읽는다. 공유 링크가 아니면 null */
+export function readShareParams(search = window.location.search) {
+  const q = new URLSearchParams(search);
+  if (!q.has("p")) return null;
+  const numStr = (k) => {
+    const v = parseFloat(q.get(k) ?? "");
+    return Number.isFinite(v) && v >= 0 ? String(v) : null;
+  };
+  const cat = q.get("c");
+  return {
+    p: numStr("p"),
+    l: numStr("l"),
+    i: numStr("i"),
+    c: CATEGORIES.some((x) => x.id === cat) ? cat : null,
+    j: numStr("j"), // 원/100엔 — 입력란 표기와 같은 단위
+    u: numStr("u"),
+  };
+}
+
+/** 현재 입력값으로 공유 URL 생성 (jr은 내부 단위인 1엔당 원화로 받는다) */
+export function buildShareUrl({ price, localShip, intlShip, catId, jr, ur }) {
+  const q = new URLSearchParams({
+    p: String(parseFloat(price) || 0),
+    l: String(parseFloat(localShip) || 0),
+    i: String(parseFloat(intlShip) || 0),
+    c: catId,
+    j: String(+(jr * 100).toFixed(2)),
+    u: String(ur),
+  });
+  return `${window.location.origin}${window.location.pathname}?${q.toString()}`;
+}

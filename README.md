@@ -18,16 +18,20 @@ npm run build    # dist/ 생성
 
 ```
 src/
-  App.jsx               환율 상태·알림 배너·탭 전환만 담당 (탭은 한 번 방문하면 숨김 유지로 상태 보존)
-  ShopTab.jsx           직구 관부가세 계산
+  App.jsx               환율 상태·알림/신선도 배너·탭 전환·공유 링크 복원 (탭은 한 번 방문하면 숨김 유지로 상태 보존)
+  ShopTab.jsx           직구 관부가세 계산 + 결과 링크 공유
   TravelTab.jsx         여행자 휴대품 (품목별 간이세율)
   CompareTab.jsx        일본 vs 국내 가격 비교
   AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
-  ui.jsx                테마·포매터·NumField/Row/Stamp/selectStyle 공용
-  data/categories.js    관세율·면세한도·여행자 간이세율표(TRAVEL_RATES)
-  lib/customs.js        직구 세금 계산(칸 공용), lib/rateSources.js 다중 소스 교차 검증
+  OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약
+  CalcBreakdown.jsx     '계산 근거 펼쳐보기' 토글 (직구·여행자 공용)
+  ui.jsx                테마·포매터·NumField/Row/Stamp/panel 공용
+  data/categories.js    관세율·면세한도·간이세율표 + RATES_LAST_VERIFIED(세율 기준일)
+  lib/customs.js        직구 세금 계산(탭 공용), lib/rateSources.js 다중 소스 교차 검증
+  lib/orders.js         구매 이력 저장소, lib/share.js 계산 결과 URL 공유
   lib/push.js           웹 푸시 클라이언트, lib/net.js fetch 타임아웃
-  hooks/useExchangeRates.js  환율 로딩·캐시, hooks/useRateAlert.js 목표 알림
+  hooks/useExchangeRates.js  환율 로딩·캐시, useRateAlert.js 목표 알림, useOrders.js 합산과세 판정
+tests/e2e/              Playwright E2E — 세금 경계값·계산 근거·공유·신선도 (npm run test:e2e)
 api/
   live-rate.js          실시간 환율, naver-shopping.js / rakuten.js 상품 검색 프록시
   bank-rate.js          수출입은행 고시환율, push.js 구독 CRUD
@@ -69,7 +73,8 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
 
 ## 환율 알림 · 이상 감지
 
-- **목표 환율 알림** — 목표가(원/1엔)와 조건(이하/이상)을 localStorage에 저장. 탭이 열려 있는 동안
+- **환율 표기** — 사용자에게 보이는 엔화 환율은 모두 국내 관행대로 **100엔 기준**(내부 계산은 1엔당 원화).
+- **목표 환율 알림** — 목표가(원/100엔)와 조건(이하/이상)을 localStorage에 저장. 탭이 열려 있는 동안
   10분마다 + 탭 복귀 시 재조회, 도달하면 상단 배너(모든 탭에서 표시) + 브라우저 알림 1회.
   판정은 수동 입력값이 아닌 실시간 API 환율 기준.
 - **이상 감지** — 클라이언트 소스 3곳(er-api, frankfurter, currency-api) + 실시간 시세(`/api/live-rate`) +
@@ -99,6 +104,17 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
 주문을 입력하면 기록과의 합산 물품가격을 달러로 환산해 면세한도(USD 150) 초과 여부를 자동 경고한다.
 합산 판정 기준은 면세 판정과 동일한 '물품가격'(상품가+일본 내 배송비).
 
+기록에는 기록 시점의 예상 세금(`taxKrw`)·최종 비용(`finalKrw`)도 저장되어, 이력 카드 상단에
+**이번 달 주문 건수·물품가 합계·예상 세금 합계**가 요약으로 표시된다.
+
+## 계산 결과 공유 · 계산 근거
+
+- **결과 링크 복사** — 직구 탭 결과 카드의 버튼으로 입력값+환율 스냅샷을 URL 쿼리에 담아 복사
+  (`src/lib/share.js`, 파라미터 p/l/i/c/j/u). 링크로 열면 같은 계산이 재현되며, 공유된 환율은
+  수동 입력 취급이라 실시간 값이 덮어쓰지 않는다. 판매자·상품명은 개인 기록이라 담지 않는다.
+- **계산 근거 펼쳐보기** — 직구·여행자 결과 카드에서 환산→면세 판정→세목별 수식을 입력값이
+  대입된 형태로 펼쳐볼 수 있다 (`src/CalcBreakdown.jsx`).
+
 ## PWA · 오프라인
 
 - `public/manifest.webmanifest` + 아이콘(192/512/apple-touch) — 홈 화면 설치 가능
@@ -119,7 +135,18 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
   - 고급시계·가방, 보석·귀금속: 15% + 기준액(각 192.3만원 / 480.8만원) 초과분 45%
   - 주류·담배: 간이세율 미적용 — 관세청 계산기 안내
 
-세율·한도 상수는 `src/data/categories.js`에서 수정.
+세율·한도 상수는 `src/data/categories.js`에서 수정. 관세청 고시와 대조해 확인했으면
+`RATES_LAST_VERIFIED`를 그 날짜로 갱신할 것 — 기준일에서 90일(`RATES_STALE_AFTER_DAYS`)이
+지나면 앱 상단에 "세율 확인 필요" 배너가 자동으로 뜬다.
+
+## 테스트
+
+```bash
+npm run test:e2e   # Playwright — vite dev 서버 자동 기동, 외부 환율 API 차단(고정 환율 수동 입력)
+```
+
+세금 로직 경계값(면세 $150, 개소세 200만원, 합산과세 트리거), 계산 근거 수식, URL 공유 왕복,
+세율 신선도 배너(가짜 시계)를 22개 시나리오로 검증한다. 세율·문구·수식을 바꾸면 반드시 실행할 것.
 
 ## Vercel 배포
 

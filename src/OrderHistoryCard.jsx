@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { T, yen, panel } from "./ui.jsx";
+import { T, yen, won, panel } from "./ui.jsx";
+import { todayStr } from "./lib/orders.js";
 
-/* 구매 이력 카드 — 기록 버튼 + 최근 목록 (직구 탭 하단) */
+/* 구매 이력 카드 — 기록 버튼 + 최근 목록 + 이번 달 지출 요약 (직구 탭 하단) */
 export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove }) {
   const [justSaved, setJustSaved] = useState(false);
   const timerRef = useRef(null);
@@ -13,6 +14,12 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setJustSaved(false), 2500);
   };
+
+  // 이번 달 지출 요약 — 세금은 taxKrw가 기록된 주문(신규 형식)만 합산한다
+  const monthKey = todayStr().slice(0, 7); // YYYY-MM
+  const monthOrders = orders.filter((o) => o.date?.startsWith(monthKey));
+  const monthGoodsJpy = monthOrders.reduce((sum, o) => sum + o.goodsJpy, 0);
+  const monthTaxKrw = monthOrders.reduce((sum, o) => sum + (o.taxKrw || 0), 0);
 
   return (
     <section style={{ ...panel(), padding: "16px 16px 12px", marginTop: 16 }}>
@@ -31,6 +38,20 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
           {justSaved ? "✓ 기록됨" : "이 주문 기록"}
         </button>
       </div>
+      {monthOrders.length > 0 && (
+        <div style={{
+          display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap",
+          background: "#F7F9F6", border: `1px solid ${T.line}`, borderRadius: 8,
+          padding: "8px 10px", marginBottom: 8, fontSize: 12, color: T.muted, fontWeight: 600,
+        }}>
+          <span style={{ color: T.ink, fontWeight: 800 }}>이번 달</span>
+          <span>주문 {monthOrders.length}건</span>
+          <span>·</span>
+          <span>물품 <b style={{ color: T.ink, fontVariantNumeric: "tabular-nums" }}>{yen(monthGoodsJpy)}</b></span>
+          <span>·</span>
+          <span>예상 세금 <b style={{ color: monthTaxKrw > 0 ? T.red : T.ink, fontVariantNumeric: "tabular-nums" }}>{won(monthTaxKrw)}</b></span>
+        </div>
+      )}
       {orders.length === 0 ? (
         <p style={{ margin: "4px 0 6px", fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
           판매자를 입력하고 주문을 기록해 두면, 다음에 같은 판매자에게 같은 날 주문할 때 합산과세 위험을 자동으로 경고합니다.

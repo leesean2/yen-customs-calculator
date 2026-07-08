@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import useExchangeRates from "./hooks/useExchangeRates.js";
 import useRateAlert from "./hooks/useRateAlert.js";
 import { T, NumField } from "./ui.jsx";
+import { RATES_LAST_VERIFIED, RATES_STALE_AFTER_DAYS } from "./data/categories.js";
+import { readShareParams } from "./lib/share.js";
 import ShopTab from "./ShopTab.jsx";
 import TravelTab from "./TravelTab.jsx";
 import CompareTab from "./CompareTab.jsx";
@@ -79,11 +81,15 @@ export default function App() {
     setVisited((v) => (v[id] ? v : { ...v, [id]: true }));
   };
 
+  // ── 공유 링크로 진입한 경우: 입력값·환율을 링크의 스냅샷으로 복원 ──
+  const [shared] = useState(readShareParams);
+
   // ── 환율: API 값 ↔ 수동 입력 ──
   const { rates, status, fetchedAt, refresh } = useExchangeRates();
-  const [jpyRate, setJpyRate] = useState("");
-  const [usdRate, setUsdRate] = useState("");
-  const [overridden, setOverridden] = useState(false);
+  const [jpyRate, setJpyRate] = useState(shared?.j ?? "");
+  const [usdRate, setUsdRate] = useState(shared?.u ?? "");
+  // 공유된 환율은 수동 입력 취급 — 실시간 값이 덮어쓰면 보낸 사람과 결과가 달라진다
+  const [overridden, setOverridden] = useState(!!(shared?.j || shared?.u));
 
   // API 값 도착 시, 사용자가 수동 수정하지 않았다면 자동 반영
   // 입력·표시는 국내 관행대로 100엔 기준, 내부 계산(jr)은 1엔당 원화
@@ -114,6 +120,12 @@ export default function App() {
   // 목표 환율 알림 — 수동 입력값이 아닌 실시간 API 환율 기준으로 판정
   const liveJpy = rates?.jpyKrw ?? 0;
   const rateAlert = useRateAlert(liveJpy, refresh);
+
+  // 세율·한도 데이터 신선도 — 기준일에서 일정 기간이 지나면 확인 배너
+  const rateDataAgeDays = Math.floor(
+    (Date.now() - new Date(`${RATES_LAST_VERIFIED}T00:00:00`).getTime()) / 86400000
+  );
+  const rateDataStale = rateDataAgeDays > RATES_STALE_AFTER_DAYS;
 
   const tabPanel = (id, node) =>
     visited[id] ? <div style={{ display: tab === id ? undefined : "none" }}>{node}</div> : null;
@@ -153,6 +165,22 @@ export default function App() {
           </div>
         </section>
 
+        {/* 세율 데이터 신선도 배너 — 법령 개정 가능성을 알린다 */}
+        {rateDataStale && (
+          <div style={{
+            background: "#FBF4E3", border: "1.5px solid #C79A2A", borderRadius: 12,
+            padding: "10px 14px", marginBottom: 14, fontSize: 12.5, color: "#8A6914",
+            fontWeight: 600, lineHeight: 1.6,
+          }}>
+            ⚠️ 세율·한도 데이터 기준일({RATES_LAST_VERIFIED})에서 {rateDataAgeDays}일이 지나
+            세율이 최신인지 확인이 필요합니다. 관세율·면세한도가 개정됐을 수 있으니{" "}
+            <a href="https://www.customs.go.kr" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>
+              관세청 고시
+            </a>
+            와 대조해 확인하세요.
+          </div>
+        )}
+
         {/* 목표 환율 도달 배너 — 어느 탭에서든 표시 */}
         {rateAlert.triggered && (
           <div style={{
@@ -181,13 +209,13 @@ export default function App() {
           ))}
         </nav>
 
-        {tabPanel("shop", <ShopTab jr={jr} ur={ur} />)}
+        {tabPanel("shop", <ShopTab jr={jr} ur={ur} shared={shared} />)}
         {tabPanel("travel", <TravelTab jr={jr} ur={ur} />)}
         {tabPanel("compare", <CompareTab jpyKrw={jr} usdKrw={ur} />)}
         {tabPanel("alert", <AlertTab liveRate={liveJpy} rateAlert={rateAlert} />)}
 
         <footer style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${T.line}`, fontSize: 11, color: T.muted, textAlign: "center" }}>
-          본 계산기는 참고용이며 법적 효력이 없습니다 · 기준: 2026.07
+          본 계산기는 참고용이며 법적 효력이 없습니다 · 세율 기준일: {RATES_LAST_VERIFIED}
         </footer>
       </div>
     </div>

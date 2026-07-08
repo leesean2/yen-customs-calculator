@@ -1,8 +1,14 @@
 /**
- * 품목별 관세율 (2026-07 기준, 참고용)
+ * 품목별 관세율 (참고용)
  * duty: 관세율, luxury: 개별소비세 대상(가방·시계),
  * excluded: 목록통관 배제 품목, vatExempt: 부가세 면제
+ *
+ * 세율·한도는 법령 개정으로 바뀔 수 있다. 최신 고시와 대조해 확인할 때마다
+ * RATES_LAST_VERIFIED를 갱신할 것 — 기준일에서 RATES_STALE_AFTER_DAYS가
+ * 지나면 앱이 "세율 확인 필요" 배너를 띄운다.
  */
+export const RATES_LAST_VERIFIED = "2026-07-08"; // 관세청 고시와 마지막으로 대조한 날
+export const RATES_STALE_AFTER_DAYS = 90;
 export const CATEGORIES = [
   { id: "electronics", label: "전자기기 (폰·노트북·태블릿·카메라)", duty: 0, note: "ITA 협정 품목은 관세 0%, 부가세 10%만 부과됩니다." },
   { id: "clothing", label: "의류 · 신발", duty: 0.13 },

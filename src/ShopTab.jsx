@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { T, won, usd, yen, NumField, TextField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
 import { CATEGORIES, DUTY_FREE_LIMIT_USD, LUXURY_SCT_BASE } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { todayStr } from "./lib/orders.js";
+import { buildShareUrl } from "./lib/share.js";
 import useOrders from "./hooks/useOrders.js";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
@@ -76,12 +77,13 @@ function buildBreakdownSteps({ shop, jr, ur, price, localShip }) {
   ];
 }
 
-/* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적) */
-export default function ShopTab({ jr, ur }) {
-  const [price, setPrice] = useState("15000");
-  const [localShip, setLocalShip] = useState("0");
-  const [intlShip, setIntlShip] = useState("15000");
-  const [catId, setCatId] = useState("hobby");
+/* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적)
+   shared: 공유 링크(URL 쿼리)로 들어온 입력값 스냅샷 — 첫 렌더에서만 쓴다 */
+export default function ShopTab({ jr, ur, shared }) {
+  const [price, setPrice] = useState(shared?.p ?? "15000");
+  const [localShip, setLocalShip] = useState(shared?.l ?? "0");
+  const [intlShip, setIntlShip] = useState(shared?.i ?? "15000");
+  const [catId, setCatId] = useState(shared?.c ?? "hobby");
 
   // ── 구매 이력 (합산과세 추적) ──
   const [seller, setSeller] = useState("");
@@ -106,6 +108,23 @@ export default function ShopTab({ jr, ur }) {
 
   const canRecord = sellerTrim && shop.goodsJpy > 0;
   const breakdownSteps = buildBreakdownSteps({ shop, jr, ur, price, localShip });
+
+  // 결과 링크 공유 — 입력값+환율 스냅샷을 URL에 담아 복사
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef(null);
+  useEffect(() => () => clearTimeout(copyTimer.current), []);
+  const copyShareLink = async () => {
+    const url = buildShareUrl({ price, localShip, intlShip, catId, jr, ur });
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // 클립보드 API가 막힌 환경(비보안 컨텍스트 등) — 직접 복사하게 보여준다
+      window.prompt("아래 링크를 복사하세요", url);
+    }
+  };
 
   return (
     <>
@@ -186,12 +205,33 @@ export default function ShopTab({ jr, ur }) {
         </div>
 
         <CalcBreakdown steps={breakdownSteps} />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+          <button onClick={copyShareLink} style={{
+            border: `1px solid ${T.indigo}`, background: copied ? T.indigo : "transparent",
+            color: copied ? "#fff" : T.indigo, borderRadius: 8, padding: "7px 14px",
+            fontSize: 12.5, fontWeight: 700, cursor: "pointer", transition: "background .15s, color .15s",
+          }}>
+            {copied ? "✓ 링크 복사됨" : "🔗 이 계산 결과 링크 복사"}
+          </button>
+          <span style={{ fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
+            입력값과 환율이 담겨, 받는 사람이 같은 계산을 그대로 봅니다
+          </span>
+        </div>
       </section>
 
       <OrderHistoryCard
         orders={orders}
         canRecord={canRecord}
-        onRecord={() => add({ date: todayStr(), seller: sellerTrim, item: itemName.trim(), goodsJpy: shop.goodsJpy })}
+        onRecord={() => add({
+          date: todayStr(),
+          seller: sellerTrim,
+          item: itemName.trim(),
+          goodsJpy: shop.goodsJpy,
+          // 월간 지출 요약용 — 기록 시점 환율로 계산된 예상 세금·최종 비용(원)
+          taxKrw: Math.round(shop.totalTax),
+          finalKrw: Math.round(shop.final),
+        })}
         onRemove={remove}
       />
 
