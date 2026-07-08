@@ -92,6 +92,21 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
   (`npx web-push generate-vapid-keys`), `CRON_SECRET`, `BLOB_READ_WRITE_TOKEN`
   (`vercel blob create-store <name> --access private --yes`로 생성 시 자동 등록) — 모두 설정됨
 
+## 구매 이력 · 합산과세 추적
+
+직구 탭에서 판매자(+상품명 메모)를 입력하고 "이 주문 기록"을 누르면 localStorage에 저장
+(`src/lib/orders.js`, 최대 50건·60일 보존, 서버 전송 없음). 이후 **같은 날 같은 판매자**로
+주문을 입력하면 기록과의 합산 물품가격을 달러로 환산해 면세한도(USD 150) 초과 여부를 자동 경고한다.
+합산 판정 기준은 면세 판정과 동일한 '물품가격'(상품가+일본 내 배송비).
+
+## PWA · 오프라인
+
+- `public/manifest.webmanifest` + 아이콘(192/512/apple-touch) — 홈 화면 설치 가능
+- `public/sw.js`가 오프라인 캐싱 담당: 페이지 이동은 network-first(새 배포 우선, 오프라인이면 캐시된
+  앱 셸), `/assets/*` 해시 자산은 cache-first, `/api/*`는 네트워크 전용
+- 서비스워커는 프로덕션 빌드에서만 등록(`src/main.jsx` — dev에선 HMR 간섭 방지). 푸시 수신과 같은 SW 파일 공유
+- 환율은 localStorage 캐시(10분)가 있어 오프라인에서도 마지막 환율로 계산 가능
+
 ## 계산 로직 (2026-07 기준, 참고용)
 
 - **직구 소액면세**: 물품가격(상품가+현지 배송비) USD 150 이하 → 면세, 초과 시 **전체 금액** 과세

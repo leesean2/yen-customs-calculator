@@ -40,6 +40,25 @@ export function NumField({ label, suffix, value, onChange, hint }) {
   );
 }
 
+export function TextField({ label, value, onChange, placeholder, hint }) {
+  return (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.02em", color: T.indigo, marginBottom: 5 }}>
+        {label}
+      </span>
+      <input
+        type="text" value={value} placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%", border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB",
+          padding: "11px 12px", fontSize: 15, fontWeight: 600, color: T.ink, outline: "none",
+        }}
+      />
+      {hint && <span style={{ display: "block", fontSize: 11.5, color: T.muted, marginTop: 4 }}>{hint}</span>}
+    </label>
+  );
+}
+
 export const selectStyle = {
   width: "100%", padding: "12px 12px", fontSize: 15, fontWeight: 600, color: T.ink,
   border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
