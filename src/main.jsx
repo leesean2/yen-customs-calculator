@@ -2,6 +2,13 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { initMonitor } from './lib/monitor.js'
+
+// 클라이언트 진단 — 프로덕션에서만(개발/테스트에서는 no-op). JS 오류·환율 폴백 진단만,
+// 개인/거래 데이터는 전송하지 않는다.
+if (import.meta.env.PROD) {
+  initMonitor({ version: __APP_VERSION__ })
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

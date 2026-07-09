@@ -29,14 +29,16 @@ src/
   ui.jsx                테마(T→CSS 변수)·포매터·NumField/Row/Stamp/panel 공용
   index.css             라이트/다크 팔레트(prefers-color-scheme)를 CSS 변수로 정의
   data/categories.js    관세율·면세한도·간이세율표 + RATES_LAST_VERIFIED(세율 기준일)
+  data/countries.js     직구 출발국 레지스트리(통화·소액면세 한도·표기 단위) — 다국가 확장 대비
   lib/customs.js        직구·여행 세금 계산(탭 공용), lib/rateSources.js 다중 소스 교차 검증
   lib/orders.js         구매 이력 저장소, lib/share.js 계산 결과 URL 공유
-  lib/push.js           웹 푸시 클라이언트, lib/net.js fetch 타임아웃
-  hooks/useExchangeRates.js  환율 로딩·캐시, useRateAlert.js 목표 알림, useOrders.js 합산과세 판정
+  lib/push.js           웹 푸시 클라이언트, lib/net.js fetch 타임아웃, lib/monitor.js 클라이언트 진단
+  hooks/useExchangeRates.js  환율 로딩·캐시(통화→원 맵), useRateAlert.js 목표 알림, useOrders.js 합산과세 판정
 tests/e2e/              Playwright E2E — 세금 경계값·계산 근거·공유·신선도 (npm run test:e2e)
+tests/pwa/              오프라인 렌더 + 클라이언트 진단 비콘 (npm run test:pwa)
 api/
   live-rate.js          실시간 환율, naver-shopping.js / rakuten.js 상품 검색 프록시
-  bank-rate.js          수출입은행 고시환율, push.js 구독 CRUD
+  bank-rate.js          수출입은행 고시환율, push.js 구독 CRUD, log.js 클라이언트 진단 수집
   cron/check-rates.js   일일 환율 검사 + 푸시 발송 (vercel.json crons)
   _lib/                 서버 공용 (rates.js 환율 소스, subs.js 구독 저장소)
 public/sw.js            푸시 수신 서비스워커
@@ -51,6 +53,39 @@ public/sw.js            푸시 수신 서비스워커
 override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬다.
 실시간 소스는 비공식이라 형식이 바뀌면 자동으로 일간 소스로 넘어간다.
 (네이버 금융 계산기 엔드포인트는 2026-07 현재 500을 반환해 제외)
+
+각 소스는 통화→원 맵(`krwPer[currency]`)을 반환한다 — 일간 소스(er-api/frankfurter)는
+USD 기준으로 KRW·JPY·EUR·CNY를 함께 받아 두어, 출발국이 늘어도 조회 키만 바꾸면 된다
+(지금 UI는 JPY·USD만 읽는다). 폴백이 몇 단계까지 떨어졌는지는 진단 로그로 남는다(아래).
+
+## 다국가 확장 구조
+
+지금 UI는 일본(직구) 전용이지만, 미국/유럽 등으로 넓힐 때 코드가 아니라 데이터만 늘리도록
+국가별 상수를 `data/countries.js` 레지스트리로 분리했다:
+
+- **소액면세 한도** — `deMinimisUsd`(미화). 미국발은 한미 FTA로 **$200**, 그 외 **$150**.
+  `calcImportCost({ ..., deMinimisUsd })`가 이 값을 받아 면세 판정하며, 기본값은 일본(150)이라
+  현재 계산 결과는 그대로다. `categories.js`의 `DUTY_FREE_LIMIT_USD`도 이 레지스트리에서 파생된다.
+- **통화·환율** — `currency`로 `krwPer`에서 상품 통화 환율을 조회한다. 면세 판정용 USD 환율은
+  상품 통화와 무관하게 항상 필요해 `LIMIT_CURRENCY`로 분리.
+- **표기 단위** — `rateUnit`(엔은 국내 관행상 100엔, 그 외 1).
+
+즉 국가 선택 UI와 그 나라 상품 통화의 실시간 소스만 추가하면 세금·환율 계층이 재사용된다.
+(실시간 `/api/live-rate`는 아직 JPY·USD만 제공 — 다른 통화가 필요하면 `api/_lib/rates.js`를 넓힐 것)
+
+## 클라이언트 진단 (에러 모니터링)
+
+Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Vercel 함수 로그로 보낸다
+(`src/lib/monitor.js` → `/api/log` → `console.error("[client-diag]", …)`, 대시보드에서 grep).
+
+- **수집 대상**: 처리되지 않은 JS 오류(메시지·스택·`pathname`)와 **환율 폴백 진단** —
+  1순위 실패 후 몇 단계까지 떨어졌는지(`rate_fallback` depth+실패 소스명), 전부 실패(`rate_all_failed`).
+- **보내지 않는 것**: 상품가격·구매 이력·환율 입력값 등 개인/거래 데이터. 오류 `path`는
+  쿼리스트링을 뺀 `pathname`만(공유 링크의 가격 입력 유출 방지). 구매 이력의 "서버 전송 없음"
+  원칙과 충돌하지 않도록 범위를 기술 진단에 한정한다.
+- **동작 조건**: 프로덕션에서만 초기화(`import.meta.env.PROD`, dev/테스트는 no-op),
+  `navigator.sendBeacon`으로 비동기 전송, 세션당 25건 상한 + 동일 메시지 중복 억제, 전송 실패는 무해.
+- 서버(`api/log.js`)는 화이트리스트 필드만·4KB 이하만 로깅해 예상 밖 대형/민감 데이터를 막는다.
 
 ## 가격 비교 (일본 vs 국내)
 

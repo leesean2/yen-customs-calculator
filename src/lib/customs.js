@@ -5,17 +5,24 @@ import {
 } from "../data/categories.js";
 
 /**
- * 일본발 직구 관부가세 계산 (직구 탭·가격비교 탭 공용)
- * - 물품가격(상품가 + 일본 내 배송비)이 USD 150 이하면 면세, 초과 시 전체 과세
+ * 직구 관부가세 계산 (직구 탭·가격비교 탭 공용)
+ * - 물품가격(상품가 + 현지 배송비)이 소액면세 한도(미화) 이하면 면세, 초과 시 전체 과세
  * - 과세가격 = 물품가격 + 국제운임
+ *
+ * 통화 일반화: priceJpy/jpyKrw는 '출발국 상품 통화'와 그 원화 환율이다(엔이 기본).
+ * deMinimisUsd는 출발국별 소액면세 한도 — 기본값은 일본(150), 미국이면 200 등
+ * (출발국별 값은 data/countries.js). usdKrw는 한도 환산용 USD 환율로 항상 필요.
  */
-export function calcImportCost({ priceJpy, localShipJpy = 0, intlShipKrw = 0, cat, jpyKrw, usdKrw }) {
+export function calcImportCost({
+  priceJpy, localShipJpy = 0, intlShipKrw = 0, cat, jpyKrw, usdKrw,
+  deMinimisUsd = DUTY_FREE_LIMIT_USD,
+}) {
   const goodsJpy = (priceJpy || 0) + (localShipJpy || 0);
   const goodsKrw = goodsJpy * (jpyKrw || 0);
   const goodsUsd = usdKrw ? goodsKrw / usdKrw : NaN;
   const intl = intlShipKrw || 0;
 
-  const overLimit = usdKrw ? goodsUsd > DUTY_FREE_LIMIT_USD : false;
+  const overLimit = usdKrw ? goodsUsd > deMinimisUsd : false;
   const taxed = overLimit || !!cat.excluded;
 
   let duty = 0, sct = 0, edu = 0, vat = 0, taxable = 0;

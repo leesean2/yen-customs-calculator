@@ -7,6 +7,8 @@
  * RATES_LAST_VERIFIED를 갱신할 것 — 기준일에서 RATES_STALE_AFTER_DAYS가
  * 지나면 앱이 "세율 확인 필요" 배너를 띄운다.
  */
+import { DEFAULT_COUNTRY } from "./countries.js";
+
 export const RATES_LAST_VERIFIED = "2026-07-08"; // 관세청 고시와 마지막으로 대조한 날
 export const RATES_STALE_AFTER_DAYS = 90;
 export const CATEGORIES = [
@@ -21,7 +23,7 @@ export const CATEGORIES = [
   { id: "etc", label: "기타 일반물품", duty: 0.08 },
 ];
 
-export const DUTY_FREE_LIMIT_USD = 150;   // 일본발 직구 소액면세 한도
+export const DUTY_FREE_LIMIT_USD = DEFAULT_COUNTRY.deMinimisUsd; // 일본발 직구 소액면세 한도(150) — 출발국별 값은 countries.js
 export const TRAVELER_LIMIT_USD = 800;    // 여행자 휴대품 기본 면세한도
 export const LUXURY_SCT_BASE = 2_000_000; // 개별소비세 기준(가방·시계)
 
