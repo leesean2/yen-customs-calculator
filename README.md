@@ -86,6 +86,10 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 - **동작 조건**: 프로덕션에서만 초기화(`import.meta.env.PROD`, dev/테스트는 no-op),
   `navigator.sendBeacon`으로 비동기 전송, 세션당 25건 상한 + 동일 메시지 중복 억제, 전송 실패는 무해.
 - 서버(`api/log.js`)는 화이트리스트 필드만·4KB 이하만 로깅해 예상 밖 대형/민감 데이터를 막는다.
+- **Sentry 전달(선택)**: 환경변수 `SENTRY_DSN`이 설정되면 서버가 진단을 Sentry로도 보낸다
+  (의존성·클라이언트 SDK 없이 HTTP envelope 직접 호출, DSN은 서버에만). JS 오류는 `error`,
+  전 소스 실패는 `warning`, 폴백은 `info` 레벨로 태그(`kind`/`diag_event`)와 함께 전송 —
+  Sentry에서 레벨/태그로 필터링·뮤트할 수 있다. 미설정이면 콘솔 로깅만 하고 넘어간다.
 
 ## 가격 비교 (일본 vs 국내)
 
@@ -104,6 +108,7 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 | `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | [developers.naver.com](https://developers.naver.com/apps/) → "검색" API | 네이버쇼핑 검색 | 설정됨 |
 | `RAKUTEN_APP_ID` | [webservice.rakuten.co.jp](https://webservice.rakuten.co.jp/) | 라쿠텐 검색 | 미설정 (외부 링크로 대체) |
 | `KOREAEXIM_API_KEY` | [koreaexim.go.kr 오픈API](https://www.koreaexim.go.kr/ir/HPHKIR019M01) | 수출입은행 고시환율 비교 | 설정됨 |
+| `SENTRY_DSN` | Sentry 프로젝트 → Client Keys (DSN) | 클라이언트 진단 Sentry 전달(선택) | 미설정 (콘솔 로깅만) |
 
 > ⚠️ Windows PowerShell에서 `"값" | vercel env add ...`로 등록하면 값 앞에 BOM(U+FEFF)이 붙어
 > 인증이 전부 실패한다. Git Bash에서 `printf '%s' '값' | vercel env add NAME production`을 사용할 것.
