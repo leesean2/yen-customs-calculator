@@ -30,7 +30,7 @@ export default function CalcBreakdown({ steps }) {
       </button>
 
       {open && (
-        <div style={{ marginTop: 10, background: "#F7F9F6", border: `1px solid ${T.line}`, borderRadius: 10, padding: "4px 12px 8px" }}>
+        <div style={{ marginTop: 10, background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 10, padding: "4px 12px 8px" }}>
           {items.map((s, i) => (
             <div key={i} style={{ padding: "8px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: T.indigo, marginBottom: 2 }}>{s.label}</div>

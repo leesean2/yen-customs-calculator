@@ -157,9 +157,9 @@ export default function ShopTab({ jr, ur, shared }) {
       {dupes.length > 0 && (
         <div style={{
           borderRadius: 12, padding: "12px 14px", marginBottom: 16, fontSize: 13, lineHeight: 1.7, fontWeight: 600,
-          background: combinedOver ? T.redSoft : "#FBF4E3",
-          color: combinedOver ? T.red : "#8A6914",
-          border: `1.5px solid ${combinedOver ? T.red : "#C79A2A"}`,
+          background: combinedOver ? T.redSoft : T.warnBg,
+          color: combinedOver ? T.red : T.warnInk,
+          border: `1.5px solid ${combinedOver ? T.red : T.warnLine}`,
         }}>
           ⚠️ 오늘 &lsquo;{sellerTrim}&rsquo;에게 주문한 기록 {dupes.length}건(물품가격 {yen(dupSumJpy)})이 있습니다.
           이번 주문과 합산하면 약 <b>{usd(combinedUsd)}</b> —{" "}

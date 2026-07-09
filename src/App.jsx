@@ -6,6 +6,7 @@ import { RATES_LAST_VERIFIED, RATES_STALE_AFTER_DAYS } from "./data/categories.j
 import { readShareParams } from "./lib/share.js";
 import ShopTab from "./ShopTab.jsx";
 import TravelTab from "./TravelTab.jsx";
+import RouteCompareTab from "./RouteCompareTab.jsx";
 import CompareTab from "./CompareTab.jsx";
 import AlertTab from "./AlertTab.jsx";
 
@@ -20,7 +21,7 @@ import AlertTab from "./AlertTab.jsx";
 function RateBadge({ status, source, fetchedAt, overridden, onRefresh, onReset }) {
   const dot = {
     live: T.green,
-    cached: "#C79A2A",
+    cached: T.warnLine,
     loading: T.muted,
     error: T.red,
   }[status];
@@ -68,8 +69,9 @@ const badgeBtnStyle = {
 const TABS = [
   { id: "shop", label: "직구" },
   { id: "travel", label: "여행자" },
-  { id: "compare", label: "가격 비교" },
-  { id: "alert", label: "환율 알림" },
+  { id: "route", label: "직구·여행" },
+  { id: "compare", label: "국내비교" },
+  { id: "alert", label: "알림" },
 ];
 
 export default function App() {
@@ -168,8 +170,8 @@ export default function App() {
         {/* 세율 데이터 신선도 배너 — 법령 개정 가능성을 알린다 */}
         {rateDataStale && (
           <div style={{
-            background: "#FBF4E3", border: "1.5px solid #C79A2A", borderRadius: 12,
-            padding: "10px 14px", marginBottom: 14, fontSize: 12.5, color: "#8A6914",
+            background: T.warnBg, border: `1.5px solid ${T.warnLine}`, borderRadius: 12,
+            padding: "10px 14px", marginBottom: 14, fontSize: 12.5, color: T.warnInk,
             fontWeight: 600, lineHeight: 1.6,
           }}>
             ⚠️ 세율·한도 데이터 기준일({RATES_LAST_VERIFIED})에서 {rateDataAgeDays}일이 지나
@@ -197,11 +199,11 @@ export default function App() {
         )}
 
         {/* 탭 */}
-        <nav style={{ display: "flex", gap: 6, background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 12, padding: 5, marginBottom: 16 }}>
+        <nav style={{ display: "flex", gap: 4, background: T.card, border: `1.5px solid ${T.line}`, borderRadius: 12, padding: 5, marginBottom: 16 }}>
           {TABS.map(({ id, label }) => (
             <button key={id} onClick={() => openTab(id)} style={{
-              flex: 1, padding: "11px 0", fontSize: 14.5, fontWeight: 700, cursor: "pointer",
-              border: "none", borderRadius: 9,
+              flex: 1, padding: "11px 2px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              border: "none", borderRadius: 9, whiteSpace: "nowrap",
               background: tab === id ? T.indigo : "transparent",
               color: tab === id ? "#fff" : T.muted,
               transition: "background .15s, color .15s",
@@ -211,6 +213,7 @@ export default function App() {
 
         {tabPanel("shop", <ShopTab jr={jr} ur={ur} shared={shared} />)}
         {tabPanel("travel", <TravelTab jr={jr} ur={ur} />)}
+        {tabPanel("route", <RouteCompareTab jr={jr} ur={ur} />)}
         {tabPanel("compare", <CompareTab jpyKrw={jr} usdKrw={ur} />)}
         {tabPanel("alert", <AlertTab liveRate={liveJpy} rateAlert={rateAlert} />)}
 

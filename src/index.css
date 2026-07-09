@@ -1,5 +1,55 @@
+/* ──────────────────────────────────────────────
+   테마 팔레트 — 라이트/다크 (prefers-color-scheme)
+   ui.jsx의 T가 var(--c-*)로 이 값들을 읽는다. 다크 값은 라이트와 대비를
+   맞춰 조정: 인디고는 흰 글자(버튼)와 어두운 배경(라벨) 양쪽에서 읽히도록
+   중간 밝기를 쓰고, 강조색(red/green)은 어두운 배경에서 톤을 올렸다.
+   ────────────────────────────────────────────── */
+:root {
+  color-scheme: light dark; /* 스크롤바·기본 폼 컨트롤이 테마를 따르도록 */
+  --c-paper: #F2F4F1;
+  --c-card: #FFFFFF;
+  --c-ink: #1C2B3A;
+  --c-indigo: #28527A;
+  --c-indigo-soft: #E8EEF4;
+  --c-red: #C13A32;
+  --c-green: #2E6B4F;
+  --c-green-soft: #E9F2ED;
+  --c-red-soft: #FBEEEC;
+  --c-muted: #75818C;
+  --c-line: #DFE3DD;
+  --c-field: #FCFDFB;
+  --c-subtle: #F7F9F6;
+  --c-warn-bg: #FBF4E3;
+  --c-warn-line: #C79A2A;
+  --c-warn-ink: #8A6914;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-paper: #12171D;
+    --c-card: #1B232C;
+    --c-ink: #E8EDF2;
+    /* 인디고: 흰 글자 버튼(≈4:1)과 어두운 배경 위 라벨(≈4.5:1) 모두 읽히는 중간 밝기 */
+    --c-indigo: #4A83BD;
+    --c-indigo-soft: #202B36;
+    --c-red: #E27A70;
+    --c-green: #57B98A;
+    --c-green-soft: #16271F;
+    --c-red-soft: #2B1B19;
+    --c-muted: #93A0AC;
+    --c-line: #2B3641;
+    --c-field: #131A21;
+    --c-subtle: #161D24;
+    --c-warn-bg: #2A2413;
+    --c-warn-line: #B28A2E;
+    --c-warn-ink: #E5C877;
+  }
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* 앱 로드 전 흰 배경 깜빡임 방지 — 최상위 배경을 테마 종이색에 맞춘다 */
+body { background: var(--c-paper); }
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }

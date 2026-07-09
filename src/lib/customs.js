@@ -1,6 +1,7 @@
 import {
   DUTY_FREE_LIMIT_USD,
   LUXURY_SCT_BASE,
+  TRAVELER_LIMIT_USD,
 } from "../data/categories.js";
 
 /**
@@ -32,5 +33,30 @@ export function calcImportCost({ priceJpy, localShipJpy = 0, intlShipKrw = 0, ca
     cat, goodsJpy, goodsKrw, goodsUsd, intl, overLimit, taxed,
     taxable, duty, sct, edu, vat, totalTax,
     final: goodsKrw + intl + totalTax,
+  };
+}
+
+/**
+ * 여행자 휴대품 세금 계산 (여행자 탭·직구vs여행 비교 탭 공용)
+ * - 면세한도는 USD 800, 초과분에만 간이세율 과세 (직구와 달리 초과분 과세)
+ * - rate: TRAVEL_RATES 항목 { id, calc(over), ... }. calc이 없으면(주류·담배) 특례로 계산 불가
+ * - selfReport: 자진신고 시 세액 30% 감면(최대 20만원). 특례 품목은 감면 미적용
+ */
+export function calcTravelTax({ totalJpy, jpyKrw, usdKrw, rate, selfReport }) {
+  const totalKrw = (totalJpy || 0) * (jpyKrw || 0);
+  const totalUsd = usdKrw ? totalKrw / usdKrw : NaN;
+  const limitKrw = TRAVELER_LIMIT_USD * (usdKrw || 0);
+  const over = Math.max(0, totalKrw - limitKrw);
+  const overUsd = usdKrw ? over / usdKrw : NaN;
+  const taxed = usdKrw ? over > 0 : false;
+  const special = !rate.calc; // 주류·담배 — 간이세율 미적용
+  // 단일간이세율(20%)은 과세대상 합계 USD 1,000 이하일 때만 선택 가능
+  const singleLimitOver = rate.id === "single20" && overUsd > 1000;
+  const tax = taxed && rate.calc ? rate.calc(over) : 0;
+  const discount = taxed && !special && selfReport ? Math.min(tax * 0.3, 200_000) : 0;
+  return {
+    rate, totalKrw, totalUsd, limitKrw, over, overUsd,
+    taxed, special, singleLimitOver, tax, discount, finalTax: tax - discount,
+    final: totalKrw + (tax - discount),
   };
 }

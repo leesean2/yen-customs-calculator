@@ -1,17 +1,26 @@
-/* 공용 테마 · 포매터 · 폼 컴포넌트 (직구/여행/가격비교 탭에서 공유) */
-
+/* 공용 테마 · 포매터 · 폼 컴포넌트 (직구/여행/가격비교 탭에서 공유)
+ *
+ * 색상 값은 CSS 변수(var(--c-*))를 가리킨다 — 실제 색은 index.css에서
+ * 라이트/다크(prefers-color-scheme) 팔레트로 정의한다. 인라인 style이
+ * 전부 이 T를 통해 색을 읽으므로, 변수만 바꾸면 앱 전체가 테마를 따라간다.
+ * field: 입력창 배경, subtle: 보조 패널 배경, warn*: 주의(황색) 배너. */
 export const T = {
-  paper: "#F2F4F1",
-  card: "#FFFFFF",
-  ink: "#1C2B3A",
-  indigo: "#28527A",
-  indigoSoft: "#E8EEF4",
-  red: "#C13A32",
-  green: "#2E6B4F",
-  greenSoft: "#E9F2ED",
-  redSoft: "#FBEEEC",
-  muted: "#75818C",
-  line: "#DFE3DD",
+  paper: "var(--c-paper)",
+  card: "var(--c-card)",
+  ink: "var(--c-ink)",
+  indigo: "var(--c-indigo)",
+  indigoSoft: "var(--c-indigo-soft)",
+  red: "var(--c-red)",
+  green: "var(--c-green)",
+  greenSoft: "var(--c-green-soft)",
+  redSoft: "var(--c-red-soft)",
+  muted: "var(--c-muted)",
+  line: "var(--c-line)",
+  field: "var(--c-field)",
+  subtle: "var(--c-subtle)",
+  warnBg: "var(--c-warn-bg)",
+  warnLine: "var(--c-warn-line)",
+  warnInk: "var(--c-warn-ink)",
 };
 
 export const won = (n) =>
@@ -27,7 +36,7 @@ export function NumField({ label, suffix, value, onChange, hint }) {
       <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.02em", color: T.indigo, marginBottom: 5 }}>
         {label}
       </span>
-      <span style={{ display: "flex", alignItems: "center", border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", padding: "0 12px" }}>
+      <span style={{ display: "flex", alignItems: "center", border: `1.5px solid ${T.line}`, borderRadius: 10, background: T.field, padding: "0 12px" }}>
         <input
           type="number" inputMode="decimal" min="0" value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -51,7 +60,7 @@ export function TextField({ label, value, onChange, placeholder, hint }) {
         onChange={(e) => onChange(e.target.value)}
         style={{
           // fontSize 16 미만이면 iOS Safari가 포커스 시 화면을 확대한다 — 모바일에서 16 유지
-          width: "100%", border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB",
+          width: "100%", border: `1.5px solid ${T.line}`, borderRadius: 10, background: T.field,
           padding: "11px 12px", fontSize: 16, fontWeight: 600, color: T.ink, outline: "none",
         }}
       />
@@ -70,7 +79,7 @@ export const panel = (borderColor = T.line) => ({
 export const selectStyle = {
   // fontSize 16: iOS Safari 포커스 확대 방지
   width: "100%", padding: "12px 12px", fontSize: 16, fontWeight: 600, color: T.ink,
-  border: `1.5px solid ${T.line}`, borderRadius: 10, background: "#FCFDFB", outline: "none",
+  border: `1.5px solid ${T.line}`, borderRadius: 10, background: T.field, outline: "none",
 };
 
 /* 인장(도장) 스타일 판정 표시 — 직구·여행 탭 공용 */

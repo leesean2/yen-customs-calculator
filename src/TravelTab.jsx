@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { T, won, usd, yen, NumField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
 import { TRAVELER_LIMIT_USD, TRAVEL_RATES } from "./data/categories.js";
+import { calcTravelTax } from "./lib/customs.js";
 import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
 
 /* 여행자 휴대품 세금 계산 탭 (품목별 간이세율) */
@@ -9,21 +10,16 @@ export default function TravelTab({ jr, ur }) {
   const [selfReport, setSelfReport] = useState(true);
   const [rateId, setRateId] = useState("single20");
 
-  const travel = useMemo(() => {
-    const rate = TRAVEL_RATES.find((r) => r.id === rateId);
-    const totalKrw = (parseFloat(travelTotal) || 0) * jr;
-    const totalUsd = ur ? totalKrw / ur : NaN;
-    const limitKrw = TRAVELER_LIMIT_USD * ur;
-    const over = Math.max(0, totalKrw - limitKrw);
-    const overUsd = ur ? over / ur : NaN;
-    const taxed = ur ? over > 0 : false;
-    const special = !rate.calc; // 주류·담배 — 간이세율 미적용
-    // 단일간이세율(20%)은 과세대상 합계 USD 1,000 이하일 때만 선택 가능
-    const singleLimitOver = rate.id === "single20" && overUsd > 1000;
-    const tax = taxed && rate.calc ? rate.calc(over) : 0;
-    const discount = taxed && !special && selfReport ? Math.min(tax * 0.3, 200_000) : 0;
-    return { rate, totalKrw, totalUsd, limitKrw, over, overUsd, taxed, special, singleLimitOver, tax, discount, finalTax: tax - discount };
-  }, [travelTotal, selfReport, rateId, jr, ur]);
+  const travel = useMemo(
+    () => calcTravelTax({
+      totalJpy: parseFloat(travelTotal) || 0,
+      jpyKrw: jr,
+      usdKrw: ur,
+      rate: TRAVEL_RATES.find((r) => r.id === rateId),
+      selfReport,
+    }),
+    [travelTotal, selfReport, rateId, jr, ur]
+  );
 
   return (
     <>

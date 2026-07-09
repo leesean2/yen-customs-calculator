@@ -15,7 +15,7 @@ import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } fr
 const rate100 = (n) => (isNaN(n) ? "—" : (n * 100).toFixed(2) + "원");
 
 function devColor(absPct) {
-  return absPct < 1 ? T.green : absPct < 3 ? "#C79A2A" : T.red;
+  return absPct < 1 ? T.green : absPct < 3 ? T.warnLine : T.red;
 }
 
 function SourceRow({ name, value, dev, error, badge }) {
@@ -286,8 +286,8 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
             <div style={{
               borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, fontWeight: 700, lineHeight: 1.6,
-              background: analysis.level === "ok" ? T.greenSoft : analysis.level === "danger" ? T.redSoft : "#FBF4E3",
-              color: analysis.level === "ok" ? T.green : analysis.level === "danger" ? T.red : "#8A6914",
+              background: analysis.level === "ok" ? T.greenSoft : analysis.level === "danger" ? T.redSoft : T.warnBg,
+              color: analysis.level === "ok" ? T.green : analysis.level === "danger" ? T.red : T.warnInk,
             }}>
               {analysis.level === "insufficient" && "소스가 부족해 교차 검증할 수 없습니다. 잠시 후 다시 검사해 주세요."}
               {analysis.level === "ok" && `✓ 정상 — 소스 간 최대 편차 ${analysis.maxDev.toFixed(2)}% (1% 미만)`}

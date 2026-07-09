@@ -21,13 +21,15 @@ src/
   App.jsx               환율 상태·알림/신선도 배너·탭 전환·공유 링크 복원 (탭은 한 번 방문하면 숨김 유지로 상태 보존)
   ShopTab.jsx           직구 관부가세 계산 + 결과 링크 공유
   TravelTab.jsx         여행자 휴대품 (품목별 간이세율)
+  RouteCompareTab.jsx   직구 vs 여행 반입 비교 (면세 $150 vs $800)
   CompareTab.jsx        일본 vs 국내 가격 비교
   AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
   OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약
   CalcBreakdown.jsx     '계산 근거 펼쳐보기' 토글 (직구·여행자 공용)
-  ui.jsx                테마·포매터·NumField/Row/Stamp/panel 공용
+  ui.jsx                테마(T→CSS 변수)·포매터·NumField/Row/Stamp/panel 공용
+  index.css             라이트/다크 팔레트(prefers-color-scheme)를 CSS 변수로 정의
   data/categories.js    관세율·면세한도·간이세율표 + RATES_LAST_VERIFIED(세율 기준일)
-  lib/customs.js        직구 세금 계산(탭 공용), lib/rateSources.js 다중 소스 교차 검증
+  lib/customs.js        직구·여행 세금 계산(탭 공용), lib/rateSources.js 다중 소스 교차 검증
   lib/orders.js         구매 이력 저장소, lib/share.js 계산 결과 URL 공유
   lib/push.js           웹 푸시 클라이언트, lib/net.js fetch 타임아웃
   hooks/useExchangeRates.js  환율 로딩·캐시, useRateAlert.js 목표 알림, useOrders.js 합산과세 판정
@@ -70,6 +72,21 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
 
 > ⚠️ Windows PowerShell에서 `"값" | vercel env add ...`로 등록하면 값 앞에 BOM(U+FEFF)이 붙어
 > 인증이 전부 실패한다. Git Bash에서 `printf '%s' '값' | vercel env add NAME production`을 사용할 것.
+
+## 직구 vs 여행 반입 비교
+
+같은 상품을 **직구로 배송받을 때**와 **여행 중 사서 직접 들고 올 때**의 세금·비용을 비교한다.
+핵심은 면세한도 차이(**직구 $150 초과 시 전체 과세** vs **여행 $800 초과분만 과세**)라, 같은 가격이라도
+경로에 따라 유·불리가 크게 갈린다. `calcImportCost`(직구)와 `calcTravelTax`(여행, `lib/customs.js`에서
+여행자 탭과 공유)로 양쪽 최종가를 계산해 판정(차이 3% 미만은 "비슷함").
+여행은 이미 현지에 있다고 보고 항공권을 제외하며, 주류·담배는 간이세율 미적용이라 판정을 보류한다.
+
+## 다크 모드
+
+`prefers-color-scheme`를 따르는 자동 라이트/다크 지원. 모든 색은 `ui.jsx`의 `T`가 `var(--c-*)` CSS 변수를
+가리키고, 실제 팔레트는 `index.css`에서 라이트/다크로 정의한다 — 인라인 style이 전부 `T`를 거치므로
+변수만 바꾸면 앱 전체가 테마를 따라간다. 다크 인디고는 흰 글자 버튼과 어두운 배경 위 라벨 양쪽에서
+읽히는 중간 밝기를 쓴다. `<meta name="theme-color">`도 라이트/다크 두 벌을 둔다.
 
 ## 환율 알림 · 이상 감지
 

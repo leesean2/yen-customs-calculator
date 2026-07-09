@@ -41,7 +41,7 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
       {monthOrders.length > 0 && (
         <div style={{
           display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap",
-          background: "#F7F9F6", border: `1px solid ${T.line}`, borderRadius: 8,
+          background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 8,
           padding: "8px 10px", marginBottom: 8, fontSize: 12, color: T.muted, fontWeight: 600,
         }}>
           <span style={{ color: T.ink, fontWeight: 800 }}>이번 달</span>
