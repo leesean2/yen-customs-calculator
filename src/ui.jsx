@@ -30,6 +30,15 @@ export const usd = (n) =>
 export const yen = (n) =>
   isNaN(n) ? "—" : "¥" + Math.round(n).toLocaleString("ja-JP");
 
+/** 출발국 통화 금액 표기 — money(14900, JP) === yen(14900) === "¥14,900" */
+export const money = (n, country) =>
+  isNaN(n) ? "—" : country.symbol + Math.round(n).toLocaleString(country.locale);
+
+/** 환율 표기 — rateText(10, JP) === "1,000원/100엔" (rate는 1단위당 원화) */
+export const rateText = (rate, country) =>
+  (rate * country.rateUnit).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) +
+  "원/" + (country.rateUnit === 1 ? "" : country.rateUnit) + country.rateUnitLabel;
+
 export function NumField({ label, suffix, value, onChange, hint }) {
   return (
     <label style={{ display: "block", marginBottom: 14 }}>

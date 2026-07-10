@@ -5,10 +5,12 @@
  * 본 결과와 달라지므로, 공유 링크는 '보낸 시점의 계산 스냅샷'이어야 한다.
  * 판매자·상품명은 개인 기록이므로 의도적으로 담지 않는다.
  *
- * 파라미터: p 상품가격(¥) · l 일본 내 배송비(¥) · i 국제 배송비(₩)
- *          c 품목 id · j 환율(원/100엔) · u 환율(원/달러)
+ * 파라미터: p 상품가격(출발국 통화) · l 현지 배송비(출발국 통화) · i 국제 배송비(₩)
+ *          c 품목 id · o 출발국 id · j 환율(원/100엔) · u 환율(원/달러)
+ *          r 출발국 환율(원/1단위) — JPY·USD 외 통화만. JPY·USD는 j·u가 스냅샷 역할.
  */
 import { CATEGORIES } from "../data/categories.js";
+import { ORIGIN_COUNTRIES } from "../data/countries.js";
 
 /** 주소창 쿼리에서 공유 입력값을 읽는다. 공유 링크가 아니면 null */
 export function readShareParams(search = window.location.search) {
@@ -19,25 +21,31 @@ export function readShareParams(search = window.location.search) {
     return Number.isFinite(v) && v >= 0 ? String(v) : null;
   };
   const cat = q.get("c");
+  const origin = q.get("o");
   return {
     p: numStr("p"),
     l: numStr("l"),
     i: numStr("i"),
     c: CATEGORIES.some((x) => x.id === cat) ? cat : null,
+    o: ORIGIN_COUNTRIES.some((x) => x.id === origin) ? origin : null,
     j: numStr("j"), // 원/100엔 — 입력란 표기와 같은 단위
     u: numStr("u"),
+    r: numStr("r"), // 원/1단위 — 출발국 통화(EUR·CNY 등)
   };
 }
 
-/** 현재 입력값으로 공유 URL 생성 (jr은 내부 단위인 1엔당 원화로 받는다) */
-export function buildShareUrl({ price, localShip, intlShip, catId, jr, ur }) {
+/** 현재 입력값으로 공유 URL 생성 (jr은 내부 단위인 1엔당 원화로 받는다)
+ *  originRate: JPY·USD 외 출발국의 원/1단위 환율 — 해당될 때만 r로 담는다 */
+export function buildShareUrl({ price, localShip, intlShip, catId, countryId, jr, ur, originRate }) {
   const q = new URLSearchParams({
     p: String(parseFloat(price) || 0),
     l: String(parseFloat(localShip) || 0),
     i: String(parseFloat(intlShip) || 0),
     c: catId,
+    o: countryId,
     j: String(+(jr * 100).toFixed(2)),
     u: String(ur),
   });
+  if (originRate) q.set("r", String(+originRate.toFixed(2)));
   return `${window.location.origin}${window.location.pathname}?${q.toString()}`;
 }

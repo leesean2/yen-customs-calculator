@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { T, won, usd, yen, NumField, TextField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
-import { CATEGORIES, DUTY_FREE_LIMIT_USD, LUXURY_SCT_BASE } from "./data/categories.js";
+import { T, won, usd, money, rateText, NumField, TextField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
+import { CATEGORIES, LUXURY_SCT_BASE } from "./data/categories.js";
+import { ORIGIN_COUNTRIES, getCountry } from "./data/countries.js";
 import { calcImportCost } from "./lib/customs.js";
 import { todayStr } from "./lib/orders.js";
 import { buildShareUrl } from "./lib/share.js";
 import useOrders from "./hooks/useOrders.js";
+import useOriginRate from "./hooks/useOriginRate.js";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
-import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
+import CalcBreakdown from "./CalcBreakdown.jsx";
 
-/* 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다 */
-function buildBreakdownSteps({ shop, jr, ur, price, localShip }) {
+/* 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다
+   country: 출발국(data/countries.js) · or: 출발국 통화 1단위당 원화 환율 */
+function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
   const dutyPct = Math.round(shop.cat.duty * 100);
   const taxTerms = [
     `관세 ${won(shop.duty)}`,
@@ -21,11 +24,11 @@ function buildBreakdownSteps({ shop, jr, ur, price, localShip }) {
   return [
     {
       label: "물품가격 (면세 판정 기준)",
-      expr: `상품 ${yen(parseFloat(price) || 0)} + 일본 내 배송·수수료 ${yen(parseFloat(localShip) || 0)} = ${yen(shop.goodsJpy)}`,
+      expr: `상품 ${money(parseFloat(price) || 0, country)} + ${country.short} 내 배송·수수료 ${money(parseFloat(localShip) || 0, country)} = ${money(shop.goodsJpy, country)}`,
     },
     {
       label: "원화 환산",
-      expr: `${yen(shop.goodsJpy)} × ${rate100Text(jr)} = ${won(shop.goodsKrw)}`,
+      expr: `${money(shop.goodsJpy, country)} × ${rateText(or, country)} = ${won(shop.goodsKrw)}`,
     },
     ur > 0 && {
       label: "달러 환산",
@@ -36,8 +39,8 @@ function buildBreakdownSteps({ shop, jr, ur, price, localShip }) {
       expr: shop.cat.excluded
         ? "목록통관 배제 품목 → 금액과 무관하게 과세"
         : shop.overLimit
-          ? `${usd(shop.goodsUsd)} > 면세한도 $${DUTY_FREE_LIMIT_USD} → 전체 금액 과세`
-          : `${usd(shop.goodsUsd)} ≤ 면세한도 $${DUTY_FREE_LIMIT_USD} → 면세`,
+          ? `${usd(shop.goodsUsd)} > 면세한도 $${country.deMinimisUsd} → 전체 금액 과세`
+          : `${usd(shop.goodsUsd)} ≤ 면세한도 $${country.deMinimisUsd} → 면세`,
       note: shop.overLimit ? "한도를 넘으면 초과분이 아닌 물품가격 전체가 과세됩니다." : undefined,
     },
     ...(shop.taxed
@@ -80,6 +83,7 @@ function buildBreakdownSteps({ shop, jr, ur, price, localShip }) {
 /* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적)
    shared: 공유 링크(URL 쿼리)로 들어온 입력값 스냅샷 — 첫 렌더에서만 쓴다 */
 export default function ShopTab({ jr, ur, shared }) {
+  const [countryId, setCountryId] = useState(shared?.o ?? "JP");
   const [price, setPrice] = useState(shared?.p ?? "15000");
   const [localShip, setLocalShip] = useState(shared?.l ?? "0");
   const [intlShip, setIntlShip] = useState(shared?.i ?? "15000");
@@ -89,32 +93,63 @@ export default function ShopTab({ jr, ur, shared }) {
   const [seller, setSeller] = useState("");
   const [itemName, setItemName] = useState("");
 
+  // ── 출발국 환율(or): JPY·USD는 App의 실시간 환율(jr·ur), 그 외는 별도 조회 ──
+  // 공유 링크의 r(원/1단위)은 발신 시점 스냅샷 — 그 출발국이 유지되는 동안 우선 적용
+  const country = getCountry(countryId);
+  const isAppCurrency = country.currency === "JPY" || country.currency === "USD";
+  const [sharedOrigin] = useState(() =>
+    shared?.o && shared?.r ? { id: shared.o, rate: parseFloat(shared.r) } : null
+  );
+  const sharedRateApplies = !isAppCurrency && sharedOrigin?.id === countryId;
+  const originLive = useOriginRate(isAppCurrency || sharedRateApplies ? null : country.currency);
+  const or =
+    country.currency === "JPY" ? jr
+    : country.currency === "USD" ? ur
+    : sharedRateApplies ? sharedOrigin.rate
+    : originLive.rate;
+
   const shop = useMemo(
     () => calcImportCost({
       priceJpy: parseFloat(price) || 0,
       localShipJpy: parseFloat(localShip) || 0,
       intlShipKrw: parseFloat(intlShip) || 0,
       cat: CATEGORIES.find((c) => c.id === catId),
-      jpyKrw: jr,
+      jpyKrw: or,
       usdKrw: ur,
+      deMinimisUsd: country.deMinimisUsd,
     }),
-    [price, localShip, intlShip, catId, jr, ur]
+    [price, localShip, intlShip, catId, or, ur, country]
   );
 
   // 같은 날 + 같은 판매자 기록 → 합산과세 경고
   // 면세 판정 기준은 '물품가격'(상품가+현지 배송비) — 합산도 같은 기준
   const { orders, add, remove, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver } =
-    useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: jr, usdKrw: ur, limitUsd: DUTY_FREE_LIMIT_USD });
+    useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: or, usdKrw: ur, limitUsd: country.deMinimisUsd, country: countryId });
 
   const canRecord = sellerTrim && shop.goodsJpy > 0;
-  const breakdownSteps = buildBreakdownSteps({ shop, jr, ur, price, localShip });
+  const breakdownSteps = buildBreakdownSteps({ shop, country, or, ur, price, localShip });
+
+  // 출발국 선택 아래 환율 상태 안내 — EUR·CNY는 별도 조회라 상태를 여기서 보여준다
+  const originRateHint = sharedRateApplies
+    ? `공유된 환율 ${rateText(or, country)} 사용 중`
+    : isAppCurrency
+      ? or > 0 ? `적용 환율 ${rateText(or, country)} — 상단 환율 설정을 따릅니다` : null
+      : {
+          loading: "환율 불러오는 중…",
+          live: `적용 환율 ${rateText(or, country)} · ECB ${originLive.date ?? ""} 고시`,
+          error: "환율을 불러오지 못했습니다 — 계산이 0원으로 표시됩니다",
+        }[originLive.status] ?? null;
+  const originRateFailed = !isAppCurrency && !sharedRateApplies && originLive.status === "error";
 
   // 결과 링크 공유 — 입력값+환율 스냅샷을 URL에 담아 복사
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
   useEffect(() => () => clearTimeout(copyTimer.current), []);
   const copyShareLink = async () => {
-    const url = buildShareUrl({ price, localShip, intlShip, catId, jr, ur });
+    const url = buildShareUrl({
+      price, localShip, intlShip, catId, countryId, jr, ur,
+      originRate: isAppCurrency ? null : or,
+    });
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -129,8 +164,31 @@ export default function ShopTab({ jr, ur, shared }) {
   return (
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
-        <NumField label="상품 가격" suffix="¥" value={price} onChange={setPrice} />
-        <NumField label="일본 내 배송비·수수료" suffix="¥" value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
+        <label style={{ display: "block", marginBottom: 14 }}>
+          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>출발국</span>
+          <select value={countryId} onChange={(e) => setCountryId(e.target.value)} style={selectStyle}>
+            {ORIGIN_COUNTRIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.flag} {c.label} — 면세한도 ${c.deMinimisUsd}
+              </option>
+            ))}
+          </select>
+          {originRateHint && (
+            <span style={{ display: "block", fontSize: 11.5, color: originRateFailed ? T.red : T.muted, marginTop: 4 }}>
+              {originRateHint}
+              {originRateFailed && (
+                <button onClick={originLive.retry} style={{
+                  border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
+                  fontSize: 11.5, fontWeight: 700, padding: 0, marginLeft: 6, textDecoration: "underline",
+                }}>
+                  다시 시도
+                </button>
+              )}
+            </span>
+          )}
+        </label>
+        <NumField label="상품 가격" suffix={country.symbol} value={price} onChange={setPrice} />
+        <NumField label={`${country.short} 내 배송비·수수료`} suffix={country.symbol} value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />
         <label style={{ display: "block", marginBottom: 14 }}>
           <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목</span>
@@ -161,11 +219,11 @@ export default function ShopTab({ jr, ur, shared }) {
           color: combinedOver ? T.red : T.warnInk,
           border: `1.5px solid ${combinedOver ? T.red : T.warnLine}`,
         }}>
-          ⚠️ 오늘 &lsquo;{sellerTrim}&rsquo;에게 주문한 기록 {dupes.length}건(물품가격 {yen(dupSumJpy)})이 있습니다.
+          ⚠️ 오늘 &lsquo;{sellerTrim}&rsquo;에게 주문한 기록 {dupes.length}건(물품가격 {money(dupSumJpy, country)})이 있습니다.
           이번 주문과 합산하면 약 <b>{usd(combinedUsd)}</b> —{" "}
           {combinedOver
-            ? `같은 날 같은 판매자 주문은 합산 과세될 수 있어, 면세한도(${DUTY_FREE_LIMIT_USD}달러)를 초과해 전체 금액에 세금이 붙을 수 있습니다. 주문일을 나누는 것을 고려하세요.`
-            : `아직 면세한도(${DUTY_FREE_LIMIT_USD}달러) 이내지만, 합산 기준으로 관리하세요.`}
+            ? `같은 날 같은 판매자 주문은 합산 과세될 수 있어, 면세한도(${country.deMinimisUsd}달러)를 초과해 전체 금액에 세금이 붙을 수 있습니다. 주문일을 나누는 것을 고려하세요.`
+            : `아직 면세한도(${country.deMinimisUsd}달러) 이내지만, 합산 기준으로 관리하세요.`}
         </div>
       )}
 
@@ -183,9 +241,9 @@ export default function ShopTab({ jr, ur, shared }) {
             <div style={{ fontSize: 12, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>
               {shop.taxed
                 ? shop.overLimit
-                  ? `미화 ${DUTY_FREE_LIMIT_USD}달러 초과 — 초과분이 아닌 전체 금액에 과세됩니다.`
+                  ? `미화 ${country.deMinimisUsd}달러 초과 — 초과분이 아닌 전체 금액에 과세됩니다.`
                   : "목록통관 배제 품목 — 금액과 무관하게 과세될 수 있습니다."
-                : `미화 ${DUTY_FREE_LIMIT_USD}달러 이하 자가사용 — 관세·부가세가 면제됩니다.`}
+                : `미화 ${country.deMinimisUsd}달러 이하 자가사용 — 관세·부가세가 면제됩니다.`}
             </div>
           </div>
         </div>
@@ -227,6 +285,7 @@ export default function ShopTab({ jr, ur, shared }) {
           date: todayStr(),
           seller: sellerTrim,
           item: itemName.trim(),
+          country: countryId,
           goodsJpy: shop.goodsJpy,
           // 월간 지출 요약용 — 기록 시점 환율로 계산된 예상 세금·최종 비용(원)
           taxKrw: Math.round(shop.totalTax),

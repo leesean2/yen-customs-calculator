@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { T, yen, won, panel } from "./ui.jsx";
+import { T, money, won, panel } from "./ui.jsx";
 import { todayStr } from "./lib/orders.js";
+import { getCountry } from "./data/countries.js";
 
 /* 구매 이력 카드 — 기록 버튼 + 최근 목록 + 이번 달 지출 요약 (직구 탭 하단) */
 export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove }) {
@@ -20,6 +21,9 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
   const monthOrders = orders.filter((o) => o.date?.startsWith(monthKey));
   const monthGoodsJpy = monthOrders.reduce((sum, o) => sum + o.goodsJpy, 0);
   const monthTaxKrw = monthOrders.reduce((sum, o) => sum + (o.taxKrw || 0), 0);
+  // 물품가 합계는 통화가 하나일 때만 의미가 있다 — 출발국이 섞인 달은 합계를 숨긴다
+  const monthCountryIds = [...new Set(monthOrders.map((o) => o.country ?? "JP"))];
+  const monthCountry = monthCountryIds.length === 1 ? getCountry(monthCountryIds[0]) : null;
 
   return (
     <section style={{ ...panel(), padding: "16px 16px 12px", marginTop: 16 }}>
@@ -46,8 +50,12 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
         }}>
           <span style={{ color: T.ink, fontWeight: 800 }}>이번 달</span>
           <span>주문 {monthOrders.length}건</span>
-          <span>·</span>
-          <span>물품 <b style={{ color: T.ink, fontVariantNumeric: "tabular-nums" }}>{yen(monthGoodsJpy)}</b></span>
+          {monthCountry && (
+            <>
+              <span>·</span>
+              <span>물품 <b style={{ color: T.ink, fontVariantNumeric: "tabular-nums" }}>{money(monthGoodsJpy, monthCountry)}</b></span>
+            </>
+          )}
           <span>·</span>
           <span>예상 세금 <b style={{ color: monthTaxKrw > 0 ? T.red : T.ink, fontVariantNumeric: "tabular-nums" }}>{won(monthTaxKrw)}</b></span>
         </div>
@@ -63,7 +71,7 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
               <span style={{ color: T.muted, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{o.date}</span>
               <span style={{ fontWeight: 700, color: T.ink, flexShrink: 0 }}>{o.seller}</span>
               <span style={{ color: T.muted, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{o.item}</span>
-              <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{yen(o.goodsJpy)}</span>
+              <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{money(o.goodsJpy, getCountry(o.country))}</span>
               <button onClick={() => onRemove(o.id)} aria-label="삭제" style={{
                 border: "none", background: "transparent", color: T.muted, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0,
               }}>×</button>
