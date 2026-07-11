@@ -7,6 +7,7 @@ import { todayStr } from "./lib/orders.js";
 import { buildShareUrl } from "./lib/share.js";
 import useOrders from "./hooks/useOrders.js";
 import useOriginRate from "./hooks/useOriginRate.js";
+import useCustomsRate from "./hooks/useCustomsRate.js";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
 
@@ -135,6 +136,17 @@ export default function ShopTab({ jr, ur, shared }) {
   const canRecord = sellerTrim && shop.goodsJpy > 0;
   const breakdownSteps = buildBreakdownSteps({ shop, country, or, ur, price, localShip });
 
+  // ── 관세청 과세환율(주간 고시) — 실제 세액 산정 기준이라 시장 환율과 병기한다 ──
+  // 과세환율로 환산한 달러 금액이 면세 판정을 뒤집으면(경계 근처) 경고를 띄운다
+  const customs = useCustomsRate();
+  const customsRate = customs?.rates?.[country.currency];
+  const customsGoodsKrw = customsRate ? shop.goodsJpy * customsRate : null;
+  const customsGoodsUsd =
+    customsGoodsKrw != null && customs.rates.USD ? customsGoodsKrw / customs.rates.USD : null;
+  const customsMismatch =
+    customsGoodsUsd != null && !shop.cat.excluded &&
+    (customsGoodsUsd > country.deMinimisUsd) !== shop.overLimit;
+
   // 출발국 선택 아래 환율 상태 안내 — EUR·CNY는 별도 조회라 상태를 여기서 보여준다
   const originRateHint = sharedRateApplies
     ? `공유된 환율 ${rateText(or, country)} 사용 중`
@@ -257,6 +269,14 @@ export default function ShopTab({ jr, ur, shared }) {
                   : "목록통관 배제 품목 — 금액과 무관하게 과세될 수 있습니다."
                 : `미화 ${country.deMinimisUsd}달러 이하 자가사용 — 관세·부가세가 면제됩니다.`}
             </div>
+            {customsGoodsUsd != null && (
+              <div style={{ fontSize: 11.5, color: customsMismatch ? T.red : T.muted, marginTop: 3, lineHeight: 1.5, fontWeight: customsMismatch ? 700 : 500 }}>
+                과세환율 기준 ≈ {won(customsGoodsKrw)} · {usd(customsGoodsUsd)}
+                {customs.appliedFrom && ` (관세청 주간 고시 · ${customs.appliedFrom}~)`}
+                {customsMismatch &&
+                  " — 세관은 과세환율로 계산하므로 실제 면세 판정이 여기 결과와 다를 수 있습니다!"}
+              </div>
+            )}
           </div>
         </div>
 

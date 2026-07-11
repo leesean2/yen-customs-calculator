@@ -20,7 +20,7 @@ npm run build    # dist/ 생성
 src/
   App.jsx               환율 상태·알림/신선도 배너·탭 전환·공유 링크 복원 (탭은 한 번 방문하면 숨김 유지로 상태 보존)
   ShopTab.jsx           직구 관부가세 계산 + 결과 링크 공유
-  TravelTab.jsx         여행자 휴대품 (품목별 간이세율)
+  TravelTab.jsx         여행자 휴대품 (품목별 간이세율 + 술·담배·향수 별도 면세한도)
   RouteCompareTab.jsx   직구 vs 여행 반입 비교 (면세 $150 vs $800)
   CompareTab.jsx        일본 vs 국내 가격 비교
   AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
@@ -112,6 +112,7 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 | `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | [developers.naver.com](https://developers.naver.com/apps/) → "검색" API | 네이버쇼핑 검색 | 설정됨 |
 | `RAKUTEN_APP_ID` | [webservice.rakuten.co.jp](https://webservice.rakuten.co.jp/) | 라쿠텐 검색 | 미설정 (외부 링크로 대체) |
 | `KOREAEXIM_API_KEY` | [koreaexim.go.kr 오픈API](https://www.koreaexim.go.kr/ir/HPHKIR019M01) | 수출입은행 고시환율 비교 | 설정됨 |
+| `UNIPASS_API_KEY` | [unipass.customs.go.kr 오픈API](https://unipass.customs.go.kr/csp/openapiInfo.do) → "관세환율정보" | 과세환율(실제 세액 기준) 병기 + 면세 판정 괴리 경고 | 미설정 (표시 생략) |
 | `SENTRY_DSN` | Sentry 프로젝트 → Client Keys (DSN) | 클라이언트 진단 Sentry 전달(선택) | 미설정 (콘솔 로깅만) |
 
 > ⚠️ Windows PowerShell에서 `"값" | vercel env add ...`로 등록하면 값 앞에 BOM(U+FEFF)이 붙어
@@ -203,7 +204,13 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
   - 단일간이세율 20% (과세대상 합계 USD 1,000 이하 — 초과 시 선택 불가 경고)
   - 그 밖의 물품 15% / 의류·신발·가죽·섬유 18% / 모피 19%
   - 고급시계·가방, 보석·귀금속: 15% + 기준액(각 192.3만원 / 480.8만원) 초과분 45%
-  - 주류·담배: 간이세율 미적용 — 관세청 계산기 안내
+- **별도 면세 품목**(여행자 탭, 기본 $800과 별개): 술 2병·2L·$400(모두 충족해야 면세, 초과 시
+  전체 과세) / 담배 궐련 200개비 / 향수 100mL. 주류는 주종별 세액을 실계산한다
+  (`calcAlcoholTax`: 관세 → 주세(증류주 72%·발효주 30% 종가, 맥주 리터당 종량) → 교육세 →
+  부가세 10%, 자진신고 감면은 세목 분리라 관세분 30%만). 담배·향수 초과는 신고 안내만.
+- **과세환율 병기**(직구 탭): 실제 세액은 관세청 주간 고시 '과세환율' 기준이라, `UNIPASS_API_KEY`가
+  설정되면 `/api/customs-rate`로 받아 물품가격의 과세환율 환산액을 병기하고, 시장 환율과
+  면세 판정이 갈리는 경계 금액이면 경고를 띄운다 (`hooks/useCustomsRate.js`).
 
 세율·한도 상수는 `src/data/categories.js`에서 수정. 관세청 고시와 대조해 확인했으면
 `RATES_LAST_VERIFIED`를 그 날짜로 갱신할 것 — 기준일에서 90일(`RATES_STALE_AFTER_DAYS`)이

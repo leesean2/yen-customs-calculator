@@ -1,4 +1,5 @@
 import {
+  ALCOHOL_ALLOWANCE,
   DUTY_FREE_LIMIT_USD,
   LUXURY_SCT_BASE,
   TRAVELER_LIMIT_USD,
@@ -49,6 +50,42 @@ export function calcImportCost({
  * - rate: TRAVEL_RATES 항목 { id, calc(over), ... }. calc이 없으면(주류·담배) 특례로 계산 불가
  * - selfReport: 자진신고 시 세액 30% 감면(최대 20만원). 특례 품목은 감면 미적용
  */
+/**
+ * 여행자 휴대 주류 세금 계산 (별도 면세한도 — 기본 $800과 별개)
+ * - 면세 조건: 병수 ≤ 2 · 총 용량 ≤ 2L · 총 금액 ≤ $400을 모두 충족
+ * - 하나라도 초과하면 '초과분'이 아닌 술 전체 금액이 과세된다
+ * - 세목: 관세 → 주세(증류주 72%·발효주 30% 종가, 맥주는 리터당 종량)
+ *        → 교육세(주세의 30% 또는 10%) → 부가세 10%
+ * - 자진신고 감면은 간이세율과 달리 세목이 분리되므로 '관세'의 30%만 (한도 20만원)
+ */
+export function calcAlcoholTax({ bottles, liters, priceJpy, jpyKrw, usdKrw, type, selfReport }) {
+  const b = bottles || 0, l = liters || 0;
+  const priceKrw = (priceJpy || 0) * (jpyKrw || 0);
+  const priceUsd = usdKrw ? priceKrw / usdKrw : NaN;
+  const entered = b > 0 || l > 0 || (priceJpy || 0) > 0;
+
+  const overReasons = [
+    b > ALCOHOL_ALLOWANCE.bottles && `${ALCOHOL_ALLOWANCE.bottles}병 초과`,
+    l > ALCOHOL_ALLOWANCE.liters && `${ALCOHOL_ALLOWANCE.liters}L 초과`,
+    (usdKrw ? priceUsd > ALCOHOL_ALLOWANCE.usd : false) && `$${ALCOHOL_ALLOWANCE.usd} 초과`,
+  ].filter(Boolean);
+  const taxed = entered && overReasons.length > 0;
+
+  let duty = 0, liquor = 0, edu = 0, vat = 0, discount = 0;
+  if (taxed) {
+    duty = priceKrw * type.duty;
+    liquor = type.liquorPerLiter ? l * type.liquorPerLiter : (priceKrw + duty) * type.liquorRate;
+    edu = liquor * type.eduRate;
+    vat = (priceKrw + duty + liquor + edu) * 0.1;
+    discount = selfReport ? Math.min(duty * 0.3, 200_000) : 0;
+  }
+  const totalTax = duty + liquor + edu + vat;
+  return {
+    type, entered, priceKrw, priceUsd, overReasons, taxed,
+    duty, liquor, edu, vat, discount, totalTax, finalTax: totalTax - discount,
+  };
+}
+
 export function calcTravelTax({ totalJpy, jpyKrw, usdKrw, rate, selfReport }) {
   const totalKrw = (totalJpy || 0) * (jpyKrw || 0);
   const totalUsd = usdKrw ? totalKrw / usdKrw : NaN;

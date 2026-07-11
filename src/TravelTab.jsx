@@ -1,14 +1,25 @@
 import { useMemo, useState } from "react";
 import { T, won, usd, yen, NumField, SelectField, Row, Stamp, panel } from "./ui.jsx";
-import { TRAVELER_LIMIT_USD, TRAVEL_RATES } from "./data/categories.js";
-import { calcTravelTax } from "./lib/customs.js";
+import {
+  TRAVELER_LIMIT_USD, TRAVEL_RATES, LIQUOR_TYPES,
+  ALCOHOL_ALLOWANCE, TOBACCO_LIMIT_CIGARETTES, PERFUME_LIMIT_ML,
+} from "./data/categories.js";
+import { calcTravelTax, calcAlcoholTax } from "./lib/customs.js";
 import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
 
-/* 여행자 휴대품 세금 계산 탭 (품목별 간이세율) */
+/* 여행자 휴대품 세금 계산 탭 (품목별 간이세율 + 술·담배·향수 별도 면세한도) */
 export default function TravelTab({ jr, ur }) {
   const [travelTotal, setTravelTotal] = useState("150000");
   const [selfReport, setSelfReport] = useState(true);
   const [rateId, setRateId] = useState("single20");
+
+  // ── 별도 면세 품목 — 기본 $800 한도와 별개로 판정한다 ──
+  const [alcBottles, setAlcBottles] = useState("0");
+  const [alcLiters, setAlcLiters] = useState("0");
+  const [alcPrice, setAlcPrice] = useState("0");
+  const [alcTypeId, setAlcTypeId] = useState("spirits");
+  const [cigarettes, setCigarettes] = useState("0");
+  const [perfumeMl, setPerfumeMl] = useState("0");
 
   const travel = useMemo(
     () => calcTravelTax({
@@ -21,10 +32,27 @@ export default function TravelTab({ jr, ur }) {
     [travelTotal, selfReport, rateId, jr, ur]
   );
 
+  const alcohol = useMemo(
+    () => calcAlcoholTax({
+      bottles: parseFloat(alcBottles) || 0,
+      liters: parseFloat(alcLiters) || 0,
+      priceJpy: parseFloat(alcPrice) || 0,
+      jpyKrw: jr,
+      usdKrw: ur,
+      type: LIQUOR_TYPES.find((t) => t.id === alcTypeId),
+      selfReport,
+    }),
+    [alcBottles, alcLiters, alcPrice, alcTypeId, jr, ur, selfReport]
+  );
+  const cigCount = parseFloat(cigarettes) || 0;
+  const perfume = parseFloat(perfumeMl) || 0;
+  const cigOver = cigCount > TOBACCO_LIMIT_CIGARETTES;
+  const perfumeOver = perfume > PERFUME_LIMIT_ML;
+
   return (
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
-        <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입하는 물품 전체" />
+        <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입 물품 전체 — 술·담배·향수는 별도 한도라 여기서 빼고 아래 섹션에 입력하세요" />
         <SelectField
           label="주요 품목 (간이세율)"
           value={rateId}
@@ -76,8 +104,9 @@ export default function TravelTab({ jr, ur }) {
           {travel.taxed ? (
             travel.special ? (
               <p style={{ margin: "6px 0 2px", fontSize: 13, color: T.red, fontWeight: 600, lineHeight: 1.6 }}>
-                주류·담배는 간이세율이 아닌 주세·담배소비세 등 별도 세율이 적용되어 여기서 계산할 수 없습니다.
-                관세청 <a href="https://www.customs.go.kr/kcs/ad/tax/ItemTaxCalculation.do" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>휴대품 예상세액 조회</a>를 이용하세요.
+                주류는 아래 &lsquo;별도 면세 품목&rsquo; 섹션에서 주종별 세액을 계산할 수 있습니다.
+                담배는 담배소비세 등 별도 세율이 적용되어 관세청{" "}
+                <a href="https://www.customs.go.kr/kcs/ad/tax/ItemTaxCalculation.do" target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>휴대품 예상세액 조회</a>를 이용하세요.
               </p>
             ) : (
               <>
@@ -132,9 +161,77 @@ export default function TravelTab({ jr, ur }) {
         />
       </section>
 
+      {/* 별도 면세 품목 — 기본 $800 한도와 별개(술·담배·향수) */}
+      <section style={{ ...panel(alcohol.taxed || cigOver || perfumeOver ? T.red : T.line), padding: "18px 18px 10px", marginTop: 16 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: T.ink, marginBottom: 4 }}>🍶 별도 면세 품목 (술·담배·향수)</div>
+        <p style={{ margin: "0 0 12px", fontSize: 12, color: T.muted, lineHeight: 1.6 }}>
+          기본 면세한도 ${TRAVELER_LIMIT_USD}와 <b>별도</b>로 적용됩니다 — 술은 {ALCOHOL_ALLOWANCE.bottles}병·
+          {ALCOHOL_ALLOWANCE.liters}L·${ALCOHOL_ALLOWANCE.usd} 세 조건을 모두 충족해야 면세입니다.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <NumField label="술 병수" suffix="병" value={alcBottles} onChange={setAlcBottles} />
+          <NumField label="술 총 용량" suffix="L" value={alcLiters} onChange={setAlcLiters} />
+          <NumField label="술 총 금액" suffix="¥" value={alcPrice} onChange={setAlcPrice} />
+        </div>
+        <SelectField
+          label="주종 (관세·주세율)"
+          value={alcTypeId}
+          onChange={setAlcTypeId}
+          note={
+            <span style={{ display: "block", fontSize: 12, marginTop: 6, lineHeight: 1.5, color: alcohol.taxed ? T.red : T.muted, fontWeight: alcohol.taxed ? 700 : 500 }}>
+              {alcohol.taxed
+                ? `면세 범위 초과(${alcohol.overReasons.join(" · ")}) — 초과분이 아닌 술 전체 금액(${won(alcohol.priceKrw)} ≈ ${usd(alcohol.priceUsd)})이 과세됩니다.`
+                : alcohol.entered
+                  ? `면세 범위 이내 — 기본 $${TRAVELER_LIMIT_USD} 한도에도 포함되지 않습니다.`
+                  : "반입할 술이 있으면 위에 입력하세요. 세 조건 중 하나라도 넘으면 전체가 과세됩니다."}
+            </span>
+          }
+        >
+          {LIQUOR_TYPES.map((t) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </SelectField>
+
+        {alcohol.taxed && (
+          <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 8, marginBottom: 14 }}>
+            <Row label={`관세 (${Math.round(alcohol.type.duty * 100)}%)`} value={won(alcohol.duty)} />
+            <Row
+              label={alcohol.type.liquorPerLiter
+                ? `주세 (종량 ${alcohol.type.liquorPerLiter.toLocaleString("ko-KR")}원/L)`
+                : `주세 (${Math.round(alcohol.type.liquorRate * 100)}%)`}
+              value={won(alcohol.liquor)}
+            />
+            <Row label={`교육세 (주세의 ${Math.round(alcohol.type.eduRate * 100)}%)`} value={won(alcohol.edu)} />
+            <Row label="부가가치세 (10%)" value={won(alcohol.vat)} />
+            {alcohol.discount > 0 && <Row label="자진신고 감면 (관세의 30%)" value={"−" + won(alcohol.discount)} />}
+            <Row label="술 납부 예상 세액" value={won(alcohol.finalTax)} strong red top />
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <NumField label="담배 (궐련)" suffix="개비" value={cigarettes} onChange={setCigarettes} />
+            <span style={{ display: "block", fontSize: 11.5, marginTop: -8, marginBottom: 10, lineHeight: 1.5, color: cigOver ? T.red : T.muted, fontWeight: cigOver ? 700 : 500 }}>
+              {cigOver
+                ? `${TOBACCO_LIMIT_CIGARETTES}개비 초과 — 초과분은 담배소비세 등 별도 세율로 과세되니 세관에 신고하세요.`
+                : `${TOBACCO_LIMIT_CIGARETTES}개비까지 면세`}
+            </span>
+          </div>
+          <div>
+            <NumField label="향수 용량" suffix="mL" value={perfumeMl} onChange={setPerfumeMl} />
+            <span style={{ display: "block", fontSize: 11.5, marginTop: -8, marginBottom: 10, lineHeight: 1.5, color: perfumeOver ? T.red : T.muted, fontWeight: perfumeOver ? 700 : 500 }}>
+              {perfumeOver
+                ? `${PERFUME_LIMIT_ML}mL 초과 — 향수 전체가 과세 대상이 되니 세관에 신고하세요.`
+                : `${PERFUME_LIMIT_ML}mL까지 면세`}
+            </span>
+          </div>
+        </div>
+      </section>
+
       <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
         · 간이세율은 관세법 시행령 별표2 기준이며, 여러 품목 혼합 구매 시 실제 세액은 품목별 계산에 따라 달라집니다.<br />
-        · 술(2병·2L·$400 이내)·담배(궐련 200개비)·향수(100mL)는 기본 면세한도와 별도로 적용됩니다.<br />
+        · 주류 세액은 주종별 대표 세율(관세·주세·교육세·부가세)로 계산한 참고값입니다. 자진신고 감면은 세목이 분리된 주류의 경우 관세분에만 적용됩니다.<br />
         · 신고 대상을 신고하지 않고 적발되면 세액의 40%(반복 시 60%) 가산세가 부과됩니다.
       </p>
     </>
