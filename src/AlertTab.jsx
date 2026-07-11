@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { T, NumField, SelectField, CheckField, panel } from "./ui.jsx";
+import { T, NumField, SelectField, CheckField, chipBtn, panel } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
@@ -43,11 +43,6 @@ function SourceRow({ name, value, dev, error, badge }) {
 const sectionStyle = { ...panel(), padding: "16px 16px 6px", marginBottom: 14 };
 const titleStyle = { fontSize: 13.5, fontWeight: 800, color: T.ink, marginBottom: 4 };
 const descStyle = { fontSize: 12, color: T.muted, lineHeight: 1.6, margin: "0 0 12px" };
-const smallBtn = (solid) => ({
-  border: `1px solid ${T.indigo}`, borderRadius: 7, padding: "5px 12px",
-  fontSize: 12, fontWeight: 700, cursor: "pointer",
-  background: solid ? T.indigo : "transparent", color: solid ? "#fff" : T.indigo,
-});
 
 /* 백그라운드 푸시 구독 — 탭을 닫아도 서버(크론)가 하루 1회 확인 후 발송
    목표 통화(cur)도 함께 저장되어 크론이 그 통화의 환율로 판정한다 */
@@ -104,19 +99,19 @@ function PushBlock({ config }) {
         {st.phase === "unsupported" && <span style={{ fontSize: 12, color: T.muted }}>이 브라우저는 웹 푸시를 지원하지 않습니다. (iOS는 홈 화면에 추가 후 지원)</span>}
         {st.phase === "busy" && <span style={{ fontSize: 12, color: T.muted }}>처리 중…</span>}
         {st.phase === "idle" && (
-          <button onClick={doSubscribe} style={smallBtn(true)}>푸시 구독하기</button>
+          <button onClick={doSubscribe} style={chipBtn({ solid: true })}>푸시 구독하기</button>
         )}
         {st.phase === "subscribed" && (
           <>
             <span style={{ fontSize: 12, color: T.green, fontWeight: 700 }}>✓ 푸시 구독 중</span>
-            <button onClick={doSubscribe} style={smallBtn(false)}>목표 다시 반영</button>
-            <button onClick={doUnsubscribe} style={{ ...smallBtn(false), borderColor: T.red, color: T.red }}>구독 해제</button>
+            <button onClick={doSubscribe} style={chipBtn()}>목표 다시 반영</button>
+            <button onClick={doUnsubscribe} style={chipBtn({ color: T.red })}>구독 해제</button>
           </>
         )}
         {st.phase === "error" && (
           <>
             <span style={{ fontSize: 12, color: T.red }}>{st.error}</span>
-            <button onClick={doSubscribe} style={smallBtn(false)}>다시 시도</button>
+            <button onClick={doSubscribe} style={chipBtn()}>다시 시도</button>
           </>
         )}
       </div>
@@ -222,10 +217,7 @@ export default function AlertTab({ rateAlert }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {notifPerm === "default" && (
-            <button onClick={askPermission} style={{
-              border: `1px solid ${T.indigo}`, background: "transparent", color: T.indigo,
-              borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer",
-            }}>
+            <button onClick={askPermission} style={chipBtn()}>
               브라우저 알림 허용하기
             </button>
           )}
@@ -253,10 +245,7 @@ export default function AlertTab({ rateAlert }) {
       <section style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지 (엔화)</div>
-          <button onClick={runCheck} disabled={check.phase === "loading"} style={{
-            border: `1px solid ${T.indigo}`, background: "transparent", color: T.indigo,
-            borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
-          }}>
+          <button onClick={runCheck} disabled={check.phase === "loading"} style={chipBtn()}>
             {check.phase === "loading" ? "검사 중…" : "다시 검사"}
           </button>
         </div>

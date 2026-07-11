@@ -79,6 +79,15 @@ export function TextField({ label, value, onChange, placeholder, hint }) {
   );
 }
 
+/* 소형 칩 버튼 스타일 — 새로고침·구독·내보내기 등 카드 안의 보조 액션 공용 */
+export const chipBtn = ({ solid = false, color = T.indigo, disabled = false } = {}) => ({
+  border: `1px solid ${disabled ? T.line : color}`,
+  background: solid && !disabled ? color : "transparent",
+  color: disabled ? T.muted : solid ? "#fff" : color,
+  borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700,
+  cursor: disabled ? "not-allowed" : "pointer",
+});
+
 /* 체크박스 + 라벨 (자진신고·알림 활성화 등 탭 공용) */
 export function CheckField({ label, checked, onChange }) {
   return (

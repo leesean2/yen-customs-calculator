@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { T, panel } from "./ui.jsx";
+import { T, chipBtn, panel } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchKrwSeries } from "./lib/fx.js";
 
@@ -83,12 +83,10 @@ export default function RateTrendChart({ currency, target = 0 }) {
           📈 환율 추이 <span style={{ fontWeight: 600, color: T.muted, fontSize: 12 }}>(원/{unitText} · ECB 일간)</span>
         </div>
         {RANGES.map((r) => (
-          <button key={r.days} onClick={() => setDays(r.days)} style={{
-            border: `1px solid ${days === r.days ? T.indigo : T.line}`, borderRadius: 7,
-            padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
-            background: days === r.days ? T.indigo : "transparent",
-            color: days === r.days ? "#fff" : T.muted,
-          }}>{r.label}</button>
+          <button key={r.days} onClick={() => setDays(r.days)}
+            style={days === r.days ? chipBtn({ solid: true }) : { ...chipBtn(), border: `1px solid ${T.line}`, color: T.muted }}>
+            {r.label}
+          </button>
         ))}
       </div>
 

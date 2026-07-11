@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import useExchangeRates from "./hooks/useExchangeRates.js";
 import useRateAlert from "./hooks/useRateAlert.js";
-import { T, NumField } from "./ui.jsx";
+import { T, NumField, chipBtn } from "./ui.jsx";
 import { RATES_LAST_VERIFIED, RATES_STALE_AFTER_DAYS } from "./data/categories.js";
 import { readShareParams } from "./lib/share.js";
 import ShopTab from "./ShopTab.jsx";
@@ -55,16 +55,7 @@ function RateBadge({ status, source, fetchedAt, overridden, onRefresh, onReset }
   );
 }
 
-const badgeBtnStyle = {
-  border: `1px solid ${T.indigo}`,
-  background: "transparent",
-  color: T.indigo,
-  borderRadius: 7,
-  padding: "4px 10px",
-  fontSize: 11.5,
-  fontWeight: 700,
-  cursor: "pointer",
-};
+const badgeBtnStyle = chipBtn();
 
 const TABS = [
   { id: "shop", label: "직구" },

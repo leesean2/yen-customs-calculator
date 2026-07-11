@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, yen, money, NumField, SelectField, Row, StampBadge, panel } from "./ui.jsx";
+import { T, won, yen, money, NumField, SelectField, Row, StampBadge, chipBtn, panel } from "./ui.jsx";
 import { CATEGORIES } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { timeoutSignal } from "./lib/net.js";
@@ -161,10 +161,7 @@ function SearchBox({ placeholder, path, priceLabel, onPick, notConfiguredHint, e
                   {it.mall || it.shop} · <b style={{ color: T.ink }}>{priceLabel(it.price)}</b>
                 </span>
               </div>
-              <button onClick={() => onPick(it.price)} style={{
-                border: `1px solid ${T.indigo}`, background: "transparent", color: T.indigo,
-                borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", flexShrink: 0,
-              }}>
+              <button onClick={() => onPick(it.price)} style={{ ...chipBtn(), flexShrink: 0 }}>
                 선택
               </button>
             </li>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { T, money, won, panel } from "./ui.jsx";
+import { T, money, won, chipBtn, panel } from "./ui.jsx";
 import { todayStr, exportOrders, parseImportedOrders } from "./lib/orders.js";
 import { getCountry } from "./data/countries.js";
 
@@ -107,10 +107,10 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
         </ul>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10, paddingTop: 8, borderTop: `1px dashed ${T.line}` }}>
-        <button onClick={doExport} disabled={orders.length === 0} style={ioBtnStyle(orders.length > 0)}>
+        <button onClick={doExport} disabled={orders.length === 0} style={chipBtn({ disabled: orders.length === 0 })}>
           ⬇ 내보내기 (JSON)
         </button>
-        <button onClick={() => fileRef.current?.click()} style={ioBtnStyle(true)}>
+        <button onClick={() => fileRef.current?.click()} style={chipBtn()}>
           ⬆ 가져오기
         </button>
         <input ref={fileRef} type="file" accept=".json,application/json" onChange={onFile} style={{ display: "none" }} />
@@ -125,11 +125,3 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
     </section>
   );
 }
-
-const ioBtnStyle = (enabled) => ({
-  border: `1px solid ${enabled ? T.indigo : T.line}`,
-  background: "transparent",
-  color: enabled ? T.indigo : T.muted,
-  borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700,
-  cursor: enabled ? "pointer" : "not-allowed",
-});
