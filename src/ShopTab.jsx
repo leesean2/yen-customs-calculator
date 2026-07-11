@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { T, won, usd, money, rateText, NumField, TextField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
+import { T, won, usd, money, rateText, NumField, TextField, SelectField, Row, Stamp, panel } from "./ui.jsx";
 import { CATEGORIES, LUXURY_SCT_BASE } from "./data/categories.js";
 import { ORIGIN_COUNTRIES, getCountry } from "./data/countries.js";
 import { calcImportCost } from "./lib/customs.js";
@@ -94,12 +94,18 @@ export default function ShopTab({ jr, ur, shared }) {
   const [itemName, setItemName] = useState("");
 
   // ── 출발국 환율(or): JPY·USD는 App의 실시간 환율(jr·ur), 그 외는 별도 조회 ──
-  // 공유 링크의 r(원/1단위)은 발신 시점 스냅샷 — 그 출발국이 유지되는 동안 우선 적용
+  // 공유 링크의 r(원/1단위)은 발신 시점 스냅샷 — 사용자가 출발국을 바꾸는 순간 폐기해,
+  // 되돌아와도 실시간 조회로 넘어간다. r이 0·음수·비수치면 스냅샷 없이 실시간 조회.
   const country = getCountry(countryId);
   const isAppCurrency = country.currency === "JPY" || country.currency === "USD";
-  const [sharedOrigin] = useState(() =>
-    shared?.o && shared?.r ? { id: shared.o, rate: parseFloat(shared.r) } : null
-  );
+  const [sharedOrigin, setSharedOrigin] = useState(() => {
+    const rate = parseFloat(shared?.r);
+    return shared?.o && rate > 0 ? { id: shared.o, rate } : null;
+  });
+  const changeCountry = (id) => {
+    if (sharedOrigin && id !== sharedOrigin.id) setSharedOrigin(null);
+    setCountryId(id);
+  };
   const sharedRateApplies = !isAppCurrency && sharedOrigin?.id === countryId;
   const originLive = useOriginRate(isAppCurrency || sharedRateApplies ? null : country.currency);
   const or =
@@ -137,9 +143,13 @@ export default function ShopTab({ jr, ur, shared }) {
       : {
           loading: "환율 불러오는 중…",
           live: `적용 환율 ${rateText(or, country)} · ECB ${originLive.date ?? ""} 고시`,
+          cached: `저장된 환율 ${rateText(or, country)} · ECB ${originLive.date ?? ""} 고시 — 최신 조회 실패`,
           error: "환율을 불러오지 못했습니다 — 계산이 0원으로 표시됩니다",
         }[originLive.status] ?? null;
   const originRateFailed = !isAppCurrency && !sharedRateApplies && originLive.status === "error";
+  // 실패·캐시 상태에서는 재시도 버튼 노출
+  const originRateStale = originRateFailed ||
+    (!isAppCurrency && !sharedRateApplies && originLive.status === "cached");
 
   // 결과 링크 공유 — 입력값+환율 스냅샷을 URL에 담아 복사
   const [copied, setCopied] = useState(false);
@@ -164,19 +174,14 @@ export default function ShopTab({ jr, ur, shared }) {
   return (
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>출발국</span>
-          <select value={countryId} onChange={(e) => setCountryId(e.target.value)} style={selectStyle}>
-            {ORIGIN_COUNTRIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.flag} {c.label} — 면세한도 ${c.deMinimisUsd}
-              </option>
-            ))}
-          </select>
-          {originRateHint && (
+        <SelectField
+          label="출발국"
+          value={countryId}
+          onChange={changeCountry}
+          note={originRateHint && (
             <span style={{ display: "block", fontSize: 11.5, color: originRateFailed ? T.red : T.muted, marginTop: 4 }}>
               {originRateHint}
-              {originRateFailed && (
+              {originRateStale && (
                 <button onClick={originLive.retry} style={{
                   border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
                   fontSize: 11.5, fontWeight: 700, padding: 0, marginLeft: 6, textDecoration: "underline",
@@ -186,25 +191,32 @@ export default function ShopTab({ jr, ur, shared }) {
               )}
             </span>
           )}
-        </label>
+        >
+          {ORIGIN_COUNTRIES.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.flag} {c.label} — 면세한도 ${c.deMinimisUsd}
+            </option>
+          ))}
+        </SelectField>
         <NumField label="상품 가격" suffix={country.symbol} value={price} onChange={setPrice} />
         <NumField label={`${country.short} 내 배송비·수수료`} suffix={country.symbol} value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목</span>
-          <select value={catId} onChange={(e) => setCatId(e.target.value)} style={selectStyle}>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label} — 관세 {Math.round(c.duty * 100)}%
-              </option>
-            ))}
-          </select>
-          {shop.cat.note && (
+        <SelectField
+          label="품목"
+          value={catId}
+          onChange={setCatId}
+          note={shop.cat.note && (
             <span style={{ display: "block", fontSize: 12, color: shop.cat.excluded ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
               {shop.cat.note}
             </span>
           )}
-        </label>
+        >
+          {CATEGORIES.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label} — 관세 {Math.round(c.duty * 100)}%
+            </option>
+          ))}
+        </SelectField>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <TextField label="판매자 (합산과세 추적)" value={seller} onChange={setSeller} placeholder="예: 아마존재팬, ○○스토어" />
           <TextField label="상품명 (선택)" value={itemName} onChange={setItemName} placeholder="기록용 메모" />

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, Row, Stamp, selectStyle, panel } from "./ui.jsx";
+import { T, won, usd, yen, NumField, SelectField, Row, Stamp, panel } from "./ui.jsx";
 import { TRAVELER_LIMIT_USD, TRAVEL_RATES } from "./data/categories.js";
 import { calcTravelTax } from "./lib/customs.js";
 import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
@@ -25,24 +25,29 @@ export default function TravelTab({ jr, ur }) {
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
         <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입하는 물품 전체" />
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>주요 품목 (간이세율)</span>
-          <select value={rateId} onChange={(e) => setRateId(e.target.value)} style={selectStyle}>
-            {TRAVEL_RATES.map((r) => (
-              <option key={r.id} value={r.id}>{r.label}</option>
-            ))}
-          </select>
-          {travel.rate.note && (
-            <span style={{ display: "block", fontSize: 12, color: travel.special ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
-              {travel.rate.note}
-            </span>
-          )}
-          {travel.singleLimitOver && (
-            <span style={{ display: "block", fontSize: 12, color: T.red, marginTop: 6, lineHeight: 1.5 }}>
-              과세대상이 미화 1,000달러(약 {won(1000 * ur)})를 초과해 단일간이세율(20%)을 적용할 수 없습니다. 위에서 실제 품목을 선택하세요.
-            </span>
-          )}
-        </label>
+        <SelectField
+          label="주요 품목 (간이세율)"
+          value={rateId}
+          onChange={setRateId}
+          note={
+            <>
+              {travel.rate.note && (
+                <span style={{ display: "block", fontSize: 12, color: travel.special ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
+                  {travel.rate.note}
+                </span>
+              )}
+              {travel.singleLimitOver && (
+                <span style={{ display: "block", fontSize: 12, color: T.red, marginTop: 6, lineHeight: 1.5 }}>
+                  과세대상이 미화 1,000달러(약 {won(1000 * ur)})를 초과해 단일간이세율(20%)을 적용할 수 없습니다. 위에서 실제 품목을 선택하세요.
+                </span>
+              )}
+            </>
+          }
+        >
+          {TRAVEL_RATES.map((r) => (
+            <option key={r.id} value={r.id}>{r.label}</option>
+          ))}
+        </SelectField>
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
           <input type="checkbox" checked={selfReport} onChange={(e) => setSelfReport(e.target.checked)} style={{ width: 18, height: 18, accentColor: T.indigo }} />
           <span style={{ fontSize: 14, fontWeight: 600 }}>세관에 자진신고 (세액 30% 감면, 최대 20만원)</span>

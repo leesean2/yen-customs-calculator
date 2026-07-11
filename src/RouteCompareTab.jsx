@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, Row, selectStyle, panel } from "./ui.jsx";
+import { T, won, usd, yen, NumField, SelectField, Row, panel } from "./ui.jsx";
 import {
   CATEGORIES,
   TRAVEL_RATES,
@@ -89,22 +89,16 @@ export default function RouteCompareTab({ jr, ur }) {
           hint="일본 세금 포함가. 직구·여행 양쪽에 동일하게 적용됩니다" />
         <NumField label="국제 배송비 (직구 시 · 배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip}
           hint="여행 반입에는 붙지 않습니다" />
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목 (직구 관세율)</span>
-          <select value={catId} onChange={(e) => setCatId(e.target.value)} style={selectStyle}>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>{c.label} — 관세 {Math.round(c.duty * 100)}%</option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목 (여행 간이세율)</span>
-          <select value={rateId} onChange={(e) => setRateId(e.target.value)} style={selectStyle}>
-            {TRAVEL_RATES.map((r) => (
-              <option key={r.id} value={r.id}>{r.label}</option>
-            ))}
-          </select>
-        </label>
+        <SelectField label="품목 (직구 관세율)" value={catId} onChange={setCatId}>
+          {CATEGORIES.map((c) => (
+            <option key={c.id} value={c.id}>{c.label} — 관세 {Math.round(c.duty * 100)}%</option>
+          ))}
+        </SelectField>
+        <SelectField label="품목 (여행 간이세율)" value={rateId} onChange={setRateId}>
+          {TRAVEL_RATES.map((r) => (
+            <option key={r.id} value={r.id}>{r.label}</option>
+          ))}
+        </SelectField>
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
           <input type="checkbox" checked={selfReport} onChange={(e) => setSelfReport(e.target.checked)}
             style={{ width: 18, height: 18, accentColor: T.indigo }} />

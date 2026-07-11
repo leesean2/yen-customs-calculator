@@ -17,11 +17,13 @@ async function openShop(page) {
   await page.getByLabel("국제 배송비").fill("0");
 }
 
-/** frankfurter 최신 환율을 결정적 값으로 모킹 — 차단 라우트보다 나중에 등록해 우선 적용 */
-async function mockFrankfurter(page, { base = "EUR", krw = 1400, date = "2026-07-10" } = {}) {
+/** frankfurter 최신 환율을 결정적 값으로 모킹 — 차단 라우트보다 나중에 등록해 우선 적용
+ *  times를 주면 그 횟수만 응답하고 라우트가 내려가 이후 요청은 차단(실패)된다 */
+async function mockFrankfurter(page, { base = "EUR", krw = 1400, date = "2026-07-10", times } = {}) {
   await page.route(
     new RegExp(`api\\.frankfurter\\.dev/v1/latest\\?base=${base}`),
-    (r) => r.fulfill({ json: { base, date, rates: { KRW: krw } } })
+    (r) => r.fulfill({ json: { base, date, rates: { KRW: krw } } }),
+    times ? { times } : undefined
   );
 }
 
@@ -106,6 +108,47 @@ test.describe("출발국 공유 링크", () => {
     await expect(page.getByLabel("출발국")).toHaveValue("US");
     await expect(page.getByLabel("상품 가격")).toHaveValue("199");
     await expect(rowValue(page, "최종 예상 비용")).toHaveText("199,000원");
+  });
+});
+
+test.describe("출발국 환율 폴백·가드", () => {
+  test("M7. 조회 실패 시 마지막 성공 환율로 폴백하고 재시도를 제공한다", async ({ page }) => {
+    await openShop(page);
+    await mockFrankfurter(page, { times: 1 }); // 1회만 성공 — 이후 요청은 차단
+    await page.getByLabel("출발국").selectOption("EU");
+    await expect(page.getByText("적용 환율 1,400원/유로")).toBeVisible();
+
+    // 재방문(라우트는 차단만 남음) — localStorage에 저장된 마지막 성공값으로 계산된다
+    await page.reload();
+    await page.getByLabel("JPY → KRW").fill("1000");
+    await page.getByLabel("USD → KRW").fill("1000");
+    await page.getByLabel("국제 배송비").fill("0");
+    await page.getByLabel("출발국").selectOption("EU");
+    await expect(page.getByText(/저장된 환율 1,400원\/유로.*최신 조회 실패/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "다시 시도" })).toBeVisible();
+
+    await page.getByLabel("상품 가격").fill("100");
+    await expect(rowValue(page, "최종 예상 비용")).toHaveText("140,000원");
+  });
+
+  test("M8. 공유 링크의 r=0은 무시되어 0원 계산에 갇히지 않는다", async ({ page }) => {
+    await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    await page.goto("/?p=100&l=0&i=0&c=hobby&j=1000&u=1000&o=EU&r=0");
+    // 스냅샷 0이 적용됐다면 '공유된 환율 0원' — 대신 실시간 조회(실패) 경로로 가야 한다
+    await expect(page.getByText(/공유된 환율/)).toBeHidden();
+    await expect(page.getByText("환율을 불러오지 못했습니다")).toBeVisible();
+  });
+
+  test("M9. 출발국을 바꾸면 공유 스냅샷을 버리고, 돌아와도 실시간 환율을 쓴다", async ({ page }) => {
+    await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    await mockFrankfurter(page); // 실시간 조회는 1,400원/유로
+    await page.goto("/?p=100&l=0&i=0&c=hobby&j=1000&u=1000&o=EU&r=1500");
+    await expect(page.getByText("공유된 환율 1,500원/유로 사용 중")).toBeVisible();
+
+    await page.getByLabel("출발국").selectOption("JP");
+    await page.getByLabel("출발국").selectOption("EU");
+    await expect(page.getByText("적용 환율 1,400원/유로")).toBeVisible();
+    await expect(page.getByText(/공유된 환율/)).toBeHidden();
   });
 });
 

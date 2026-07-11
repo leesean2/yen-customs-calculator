@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, yen, NumField, Row, selectStyle, panel } from "./ui.jsx";
+import { T, won, yen, NumField, SelectField, Row, panel } from "./ui.jsx";
 import { CATEGORIES } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { timeoutSignal } from "./lib/net.js";
@@ -203,14 +203,11 @@ export default function CompareTab({ jpyKrw, usdKrw }) {
         <NumField label="일본 상품 가격" suffix="¥" value={jpPrice} onChange={setJpPrice}
           hint="위 링크에서 확인한 세금 포함가를 입력하세요" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} />
-        <label style={{ display: "block", marginBottom: 14 }}>
-          <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.indigo, marginBottom: 5 }}>품목 (관부가세 계산용)</span>
-          <select value={catId} onChange={(e) => setCatId(e.target.value)} style={selectStyle}>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>{c.label} — 관세 {Math.round(c.duty * 100)}%</option>
-            ))}
-          </select>
-        </label>
+        <SelectField label="품목 (관부가세 계산용)" value={catId} onChange={setCatId}>
+          {CATEGORIES.map((c) => (
+            <option key={c.id} value={c.id}>{c.label} — 관세 {Math.round(c.duty * 100)}%</option>
+          ))}
+        </SelectField>
       </section>
 
       {/* 국내 가격 */}

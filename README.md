@@ -68,6 +68,7 @@ USD 기준으로 KRW·JPY·EUR·CNY를 함께 받아 두어, 출발국이 늘어
   `categories.js`의 `DUTY_FREE_LIMIT_USD`도 이 레지스트리에서 파생된다.
 - **통화·환율** — JPY·USD는 상단 환율 설정(실시간·수동 입력)을 그대로 쓰고,
   EUR·CNY는 `hooks/useOriginRate.js`가 frankfurter(ECB 일간, `lib/fx.js`)에서 별도 조회한다.
+  조회 실패 시 마지막 성공값(localStorage)으로 폴백하고 고시일과 재시도 버튼을 보여준다.
   면세 판정용 USD 환율은 상품 통화와 무관하게 항상 필요해 `LIMIT_CURRENCY`로 분리.
 - **표기** — `symbol`/`locale`(금액), `rateUnit`/`rateUnitLabel`(환율 — 엔은 국내 관행상
   100엔 기준 "원/100엔", 그 외 1단위), `short`(문장 속 국가명 "일본 내 배송비").

@@ -30,9 +30,10 @@ export const usd = (n) =>
 export const yen = (n) =>
   isNaN(n) ? "—" : "¥" + Math.round(n).toLocaleString("ja-JP");
 
-/** 출발국 통화 금액 표기 — money(14900, JP) === yen(14900) === "¥14,900" */
+/** 출발국 통화 금액 표기 — money(14900, JP) === yen(14900) === "¥14,900"
+ *  숫자 묶음은 항상 한국식 콤마: 통화별 로케일(독일식 "1.234")은 소수점으로 오독된다 */
 export const money = (n, country) =>
-  isNaN(n) ? "—" : country.symbol + Math.round(n).toLocaleString(country.locale);
+  isNaN(n) ? "—" : country.symbol + Math.round(n).toLocaleString("ko-KR");
 
 /** 환율 표기 — rateText(10, JP) === "1,000원/100엔" (rate는 1단위당 원화) */
 export const rateText = (rate, country) =>
@@ -85,11 +86,28 @@ export const panel = (borderColor = T.line) => ({
   borderRadius: 14,
 });
 
-export const selectStyle = {
+// SelectField 내부 전용 — 셀렉트가 필요하면 SelectField를 쓴다
+const selectStyle = {
   // fontSize 16: iOS Safari 포커스 확대 방지
   width: "100%", padding: "12px 12px", fontSize: 16, fontWeight: 600, color: T.ink,
   border: `1.5px solid ${T.line}`, borderRadius: 10, background: T.field, outline: "none",
 };
+
+/* 라벨 + 셀렉트 골격 (각 탭의 품목/출발국/조건 선택 공용)
+   children: <option> 목록 · note: 선택 아래 붙는 설명 노드(스타일은 호출부가 소유) */
+export function SelectField({ label, value, onChange, note, children }) {
+  return (
+    <label style={{ display: "block", marginBottom: 14 }}>
+      <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.02em", color: T.indigo, marginBottom: 5 }}>
+        {label}
+      </span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={selectStyle}>
+        {children}
+      </select>
+      {note}
+    </label>
+  );
+}
 
 /* 인장(도장) 스타일 판정 표시 — 직구·여행 탭 공용 */
 export function Stamp({ taxed }) {
