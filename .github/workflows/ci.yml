@@ -1,0 +1,46 @@
+# CI — push/PR마다 전체 테스트를 돌린다. Vercel은 빌드만 하고 배포하므로,
+# 여기서 실패하면 커밋이 테스트를 깨뜨렸다는 뜻이다 (배포 게이트는 아님).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests (vitest)
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests (Playwright, vite dev)
+        run: npm run test:e2e
+
+      - name: PWA offline tests (production build + preview)
+        run: npm run test:pwa
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
