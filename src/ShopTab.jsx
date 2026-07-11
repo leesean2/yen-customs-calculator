@@ -9,8 +9,11 @@ import useOriginCountry from "./hooks/useOriginCountry.js";
 import useCustomsRate from "./hooks/useCustomsRate.js";
 import OriginSelectField from "./OriginSelect.jsx";
 import HsRateField from "./HsRate.jsx";
+import ShipEstimateField from "./ShipEstimate.jsx";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
+import SavedCalcsCard from "./SavedCalcsCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
+import ClearanceGuide from "./ClearanceGuide.jsx";
 
 /* 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다
    country: 출발국(data/countries.js) · or: 출발국 통화 1단위당 원화 환율
@@ -254,6 +257,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
         </button>
         <NumField label={`${country.short} 내 배송비·수수료`} suffix={country.symbol} value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />
+        <ShipEstimateField countryId={countryId} onApply={setIntlShip} />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <TextField label="판매자 (합산과세 추적)" value={seller} onChange={setSeller} placeholder="예: 아마존재팬, ○○스토어" />
           <TextField label="상품명 (선택)" value={itemName} onChange={setItemName} placeholder="기록용 메모" />
@@ -327,6 +331,8 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
 
         <CalcBreakdown steps={breakdownSteps} />
 
+        <ClearanceGuide shop={shop} country={country} />
+
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
           <button onClick={copyShareLink} style={{
             border: `1px solid ${T.indigo}`, background: copied ? T.indigo : "transparent",
@@ -340,6 +346,17 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
           </span>
         </div>
       </section>
+
+      <SavedCalcsCard
+        makeSnapshot={() => ({
+          // 공유 링크와 같은 스냅샷 — 저장함은 그 쿼리 부분만 보관한다
+          query: new URL(buildShareUrl({
+            items, localShip, intlShip, countryId, jr, ur,
+            originRate: isAppCurrency ? null : or,
+          })).search,
+          summary: `${country.flag} ${money(shop.goodsJpy, country)}${shop.taxed ? ` · 세금 ${won(shop.totalTax)}` : ""} · 최종 ${won(shop.final)}`,
+        })}
+      />
 
       <OrderHistoryCard
         orders={orders}
