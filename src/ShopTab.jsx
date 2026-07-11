@@ -10,6 +10,7 @@ import useCustomsRate from "./hooks/useCustomsRate.js";
 import OriginSelectField from "./OriginSelect.jsx";
 import HsRateField from "./HsRate.jsx";
 import ShipEstimateField from "./ShipEstimate.jsx";
+import CategoryOptions from "./CategoryOptions.jsx";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import SavedCalcsCard from "./SavedCalcsCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
@@ -237,11 +238,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
                   </span>
                 )}
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label} — 관세 {Math.round(c.duty * 100)}%
-                  </option>
-                ))}
+                <CategoryOptions />
               </SelectField>
               <HsRateField
                 applied={it.hsRate}

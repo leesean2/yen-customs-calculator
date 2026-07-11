@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { loadSavedCalcs, saveSavedCalcs, newSavedCalc, MAX_SAVED_CALCS } from "../../src/lib/savedCalcs.js";
+import {
+  loadSavedCalcs, saveSavedCalcs, newSavedCalc, MAX_SAVED_CALCS,
+  exportSavedCalcs, parseImportedSavedCalcs, mergeSavedCalcs,
+} from "../../src/lib/savedCalcs.js";
 
 /* 계산 저장함 저장소 단위 테스트 — 손상된 저장소에서 유효 항목만 살리는
    검증 규칙과 이름 기본값·길이 제한을 확인한다 */
@@ -60,5 +63,42 @@ describe("newSavedCalc / saveSavedCalcs", () => {
     const loaded = loadSavedCalcs();
     expect(loaded).toHaveLength(MAX_SAVED_CALCS);
     expect(loaded[0]).toEqual(entry({ id: "id0", summary: undefined }));
+  });
+});
+
+describe("내보내기 / 가져오기 / 병합", () => {
+  it("내보낸 JSON을 그대로 가져오면 항목이 보존된다 (왕복)", () => {
+    const list = [entry({ savedAt: "2026-07-11", summary: "요약" })];
+    expect(parseImportedSavedCalcs(exportSavedCalcs(list))).toEqual(list);
+  });
+
+  it("무효 항목은 버리고, 이상한 savedAt은 오늘로 보정한다", () => {
+    const json = JSON.stringify({ saved: [
+      entry({ savedAt: "이상한값" }),
+      entry({ id: "b2", query: "p=1" }), // '?' 누락 — 버림
+      { name: "이름만" },                 // 필수 필드 누락 — 버림
+    ] });
+    const out = parseImportedSavedCalcs(json);
+    expect(out).toHaveLength(1);
+    expect(out[0].savedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("목록이 아니면 throw — 카드가 실패 안내를 띄우는 경로", () => {
+    expect(() => parseImportedSavedCalcs("{}")).toThrow();
+    expect(() => parseImportedSavedCalcs("{broken")).toThrow();
+  });
+
+  it("병합 — id 중복은 기존 우선, 저장일 내림차순, 최대 개수 유지", () => {
+    const cur = [entry({ id: "a1", name: "기존", savedAt: "2026-07-10" })];
+    const imp = [
+      entry({ id: "a1", name: "덮어쓰기 시도", savedAt: "2026-07-11" }),
+      entry({ id: "b2", name: "새 항목", savedAt: "2026-07-11" }),
+    ];
+    const merged = mergeSavedCalcs(cur, imp);
+    expect(merged.map((s) => s.id)).toEqual(["b2", "a1"]); // 날짜 내림차순
+    expect(merged.find((s) => s.id === "a1").name).toBe("기존");
+    // 상한 초과는 잘린다
+    const many = Array.from({ length: MAX_SAVED_CALCS + 5 }, (_, i) => entry({ id: `x${i}`, savedAt: "2026-07-01" }));
+    expect(mergeSavedCalcs([], many)).toHaveLength(MAX_SAVED_CALCS);
   });
 });

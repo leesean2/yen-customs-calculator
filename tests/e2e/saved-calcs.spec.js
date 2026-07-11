@@ -36,6 +36,29 @@ test("이름을 비우면 날짜 기본 이름으로 저장되고, 삭제하면 
   await expect(page.getByText("구매를 고민 중인 상품을 담아 두고")).toBeVisible();
 });
 
+test("저장함 JSON 백업 — 내보내기 → 저장소 초기화 → 가져오기로 복원된다", async ({ page }) => {
+  await openShop(page);
+  await page.getByLabel("저장 이름").fill("백업 테스트");
+  await page.getByRole("button", { name: "현재 계산 저장" }).click();
+  await expect(page.getByText("백업 테스트")).toBeVisible();
+
+  const savedCard = page.locator("section", { hasText: "계산 저장함" });
+  const downloadP = page.waitForEvent("download");
+  await savedCard.getByRole("button", { name: "내보내기 (JSON)" }).click();
+  const file = await (await downloadP).path();
+
+  await page.evaluate(() => localStorage.removeItem("yen-calc:saved-calcs:v1"));
+  await page.reload();
+  await expect(page.getByText("백업 테스트")).toBeHidden();
+
+  await page.getByLabel("계산 저장함 JSON 파일").setInputFiles(file);
+  await expect(page.getByText("✓ 1건 가져옴", { exact: false })).toBeVisible();
+  await expect(page.getByText("백업 테스트")).toBeVisible();
+  // 복원된 항목이 실제로 열린다
+  await page.getByRole("button", { name: "열기" }).click();
+  await expect(rowValue(page, "최종 예상 비용")).toHaveText("150,000원");
+});
+
 test("장바구니·HS세율 스냅샷도 저장함으로 왕복된다", async ({ page }) => {
   await openShop(page);
   await page.getByLabel("상품 가격").fill("10000");

@@ -1,17 +1,25 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, SelectField, CheckField, Row, Stamp, panel } from "./ui.jsx";
+import { T, won, usd, money, rateText, NumField, SelectField, CheckField, Row, Stamp, panel } from "./ui.jsx";
 import {
   TRAVELER_LIMIT_USD, TRAVEL_RATES, LIQUOR_TYPES,
   ALCOHOL_ALLOWANCE, TOBACCO_LIMIT_CIGARETTES, PERFUME_LIMIT_ML,
 } from "./data/categories.js";
 import { calcTravelTax, calcAlcoholTax } from "./lib/customs.js";
-import CalcBreakdown, { rate100Text } from "./CalcBreakdown.jsx";
+import useOriginCountry from "./hooks/useOriginCountry.js";
+import OriginSelectField from "./OriginSelect.jsx";
+import CalcBreakdown from "./CalcBreakdown.jsx";
 
-/* 여행자 휴대품 세금 계산 탭 (품목별 간이세율 + 술·담배·향수 별도 면세한도) */
-export default function TravelTab({ jr, ur }) {
+/* 여행자 휴대품 세금 계산 탭 (품목별 간이세율 + 술·담배·향수 별도 면세한도)
+   여행국 선택: 면세한도($800)는 어느 나라든 같지만, 구매 금액은 현지 통화로
+   입력하므로 통화·환율만 출발국 레지스트리를 따른다 (직구 탭과 같은 훅) */
+export default function TravelTab({ jr, ur, krwPer }) {
+  const [countryId, setCountryId] = useState("JP");
   const [travelTotal, setTravelTotal] = useState("150000");
   const [selfReport, setSelfReport] = useState(true);
   const [rateId, setRateId] = useState("single20");
+
+  const origin = useOriginCountry({ countryId, jr, ur, krwPer });
+  const { country, rate: or } = origin;
 
   // ── 별도 면세 품목 — 기본 $800 한도와 별개로 판정한다 ──
   const [alcBottles, setAlcBottles] = useState("0");
@@ -21,15 +29,16 @@ export default function TravelTab({ jr, ur }) {
   const [cigarettes, setCigarettes] = useState("0");
   const [perfumeMl, setPerfumeMl] = useState("0");
 
+  // totalJpy/priceJpy는 '출발국 통화' 금액 (계산식은 통화 중립 — 엔이 기본이라 이름 유지)
   const travel = useMemo(
     () => calcTravelTax({
       totalJpy: parseFloat(travelTotal) || 0,
-      jpyKrw: jr,
+      jpyKrw: or,
       usdKrw: ur,
       rate: TRAVEL_RATES.find((r) => r.id === rateId),
       selfReport,
     }),
-    [travelTotal, selfReport, rateId, jr, ur]
+    [travelTotal, selfReport, rateId, or, ur]
   );
 
   const alcohol = useMemo(
@@ -37,12 +46,12 @@ export default function TravelTab({ jr, ur }) {
       bottles: parseFloat(alcBottles) || 0,
       liters: parseFloat(alcLiters) || 0,
       priceJpy: parseFloat(alcPrice) || 0,
-      jpyKrw: jr,
+      jpyKrw: or,
       usdKrw: ur,
       type: LIQUOR_TYPES.find((t) => t.id === alcTypeId),
       selfReport,
     }),
-    [alcBottles, alcLiters, alcPrice, alcTypeId, jr, ur, selfReport]
+    [alcBottles, alcLiters, alcPrice, alcTypeId, or, ur, selfReport]
   );
   const cigCount = parseFloat(cigarettes) || 0;
   const perfume = parseFloat(perfumeMl) || 0;
@@ -52,7 +61,8 @@ export default function TravelTab({ jr, ur }) {
   return (
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
-        <NumField label="일본에서 구매한 총 금액" suffix="¥" value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입 물품 전체 — 술·담배·향수는 별도 한도라 여기서 빼고 아래 섹션에 입력하세요" />
+        <OriginSelectField value={countryId} onChange={setCountryId} origin={origin} label="여행국" showLimit={false} />
+        <NumField label={`${country.short}에서 구매한 총 금액`} suffix={country.symbol} value={travelTotal} onChange={setTravelTotal} hint="면세점 구매 포함, 국내 반입 물품 전체 — 술·담배·향수는 별도 한도라 여기서 빼고 아래 섹션에 입력하세요" />
         <SelectField
           label="주요 품목 (간이세율)"
           value={rateId}
@@ -122,7 +132,7 @@ export default function TravelTab({ jr, ur }) {
           steps={[
             {
               label: "원화 환산",
-              expr: `${yen(parseFloat(travelTotal) || 0)} × ${rate100Text(jr)} = ${won(travel.totalKrw)}`,
+              expr: `${money(parseFloat(travelTotal) || 0, country)} × ${rateText(or, country)} = ${won(travel.totalKrw)}`,
             },
             ur > 0 && {
               label: "면세한도 환산",
@@ -169,7 +179,7 @@ export default function TravelTab({ jr, ur }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <NumField label="술 병수" suffix="병" value={alcBottles} onChange={setAlcBottles} />
           <NumField label="술 총 용량" suffix="L" value={alcLiters} onChange={setAlcLiters} />
-          <NumField label="술 총 금액" suffix="¥" value={alcPrice} onChange={setAlcPrice} />
+          <NumField label="술 총 금액" suffix={country.symbol} value={alcPrice} onChange={setAlcPrice} />
         </div>
         <SelectField
           label="주종 (관세·주세율)"

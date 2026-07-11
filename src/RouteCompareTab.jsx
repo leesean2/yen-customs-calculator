@@ -4,6 +4,7 @@ import { CATEGORIES, TRAVEL_RATES, TRAVELER_LIMIT_USD } from "./data/categories.
 import { calcImportCost, calcTravelTax } from "./lib/customs.js";
 import useOriginCountry from "./hooks/useOriginCountry.js";
 import OriginSelectField from "./OriginSelect.jsx";
+import CategoryOptions from "./CategoryOptions.jsx";
 
 /* ──────────────────────────────────────────────
    같은 상품 — 직구 vs 여행 반입 비교 탭
@@ -83,9 +84,7 @@ export default function RouteCompareTab({ jr, ur, krwPer }) {
         <NumField label="국제 배송비 (직구 시 · 배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip}
           hint="여행 반입에는 붙지 않습니다" />
         <SelectField label="품목 (직구 관세율)" value={catId} onChange={setCatId}>
-          {CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>{c.label} — 관세 {Math.round(c.duty * 100)}%</option>
-          ))}
+          <CategoryOptions />
         </SelectField>
         <SelectField label="품목 (여행 간이세율)" value={rateId} onChange={setRateId}>
           {TRAVEL_RATES.map((r) => (

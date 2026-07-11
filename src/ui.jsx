@@ -97,6 +97,20 @@ export const linkBtn = {
   fontSize: 11.5, fontWeight: 700, padding: 0, textDecoration: "underline",
 };
 
+/* 입력란 아래 링크형 접이식 골격 (HS세율·배송비 추정 공용) — Disclosure와 달리
+   구분선 없이 밑줄 링크(▸/▾)가 손잡이. 입력 필드 사이에 끼워 넣는 선택 기능용 */
+export function InlineFold({ label, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ margin: "-6px 0 14px" }}>
+      <button onClick={() => setOpen((o) => !o)} style={linkBtn} aria-expanded={open}>
+        {open ? "▾" : "▸"} {label}
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
 /* 결과 카드 하단 접이식 토글 골격 (계산 근거·통관 절차 안내 공용)
    label: 노드 또는 (open) => 노드 — 열림 상태에 따라 문구가 바뀌면 함수로 */
 export function Disclosure({ label, children }) {

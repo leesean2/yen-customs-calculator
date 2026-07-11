@@ -26,8 +26,3 @@ export default function CalcBreakdown({ steps }) {
     </Disclosure>
   );
 }
-
-/** 환율 표기: 1엔당 원화(jr) → "1,000원/100엔" 꼴 */
-export function rate100Text(jr) {
-  return (jr * 100).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + "원/100엔";
-}

@@ -202,7 +202,7 @@ export default function App() {
         </nav>
 
         {tabPanel("shop", <ShopTab jr={jr} ur={ur} krwPer={rates?.krwPer} shared={shared} />)}
-        {tabPanel("travel", <TravelTab jr={jr} ur={ur} />)}
+        {tabPanel("travel", <TravelTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("route", <RouteCompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("compare", <CompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("alert", <AlertTab rateAlert={rateAlert} />)}

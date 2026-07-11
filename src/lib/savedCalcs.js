@@ -44,3 +44,41 @@ export function newSavedCalc({ name, query, summary }) {
     summary: String(summary ?? "").slice(0, 80),
   };
 }
+
+/* ── 내보내기 / 가져오기 — 구매 이력(orders.js)과 같은 이유: localStorage
+   전용이라 브라우저를 바꾸면 사라지므로 JSON 백업·복원 경로를 제공한다 ── */
+
+/** 저장함을 내보내기용 JSON 문자열로 직렬화 */
+export function exportSavedCalcs(list) {
+  return JSON.stringify(
+    { app: "yen-calc", kind: "saved-calcs", version: 1, exportedAt: new Date().toISOString(), saved: list },
+    null, 2
+  );
+}
+
+/**
+ * 가져온 JSON 텍스트를 파싱·검증해 저장 항목 배열로 반환 (형식 오류는 throw)
+ * loadSavedCalcs와 같은 valid 규칙으로 거르고, 필드는 화이트리스트로만 복사한다.
+ */
+export function parseImportedSavedCalcs(text) {
+  const data = JSON.parse(text);
+  const list = Array.isArray(data) ? data : data?.saved;
+  if (!Array.isArray(list)) throw new Error("저장함 목록이 없습니다");
+  return list.filter(valid).map((s) => ({
+    id: String(s.id),
+    name: String(s.name).trim().slice(0, MAX_NAME),
+    savedAt: typeof s.savedAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(s.savedAt)
+      ? s.savedAt.slice(0, 10)
+      : todayStr(),
+    query: String(s.query),
+    summary: String(s.summary ?? "").slice(0, 80),
+  }));
+}
+
+/** 기존 저장함과 병합 — id 중복은 기존 우선, 저장일 내림차순, 최대 개수 유지 */
+export function mergeSavedCalcs(current, imported) {
+  const seen = new Set(current.map((s) => s.id));
+  const merged = [...current, ...imported.filter((s) => !seen.has(s.id))];
+  merged.sort((a, b) => (a.savedAt < b.savedAt ? 1 : a.savedAt > b.savedAt ? -1 : 0));
+  return merged.slice(0, MAX_SAVED_CALCS);
+}

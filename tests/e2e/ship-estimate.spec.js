@@ -36,6 +36,31 @@ test("부피무게가 실무게보다 크면 부피무게 기준으로 청구된
   await expect(page.getByLabel("국제 배송비")).toHaveValue("15400");
 });
 
+test("내 배대지 요율 — 저장하면 추정에 쓰이고 새로고침 후에도 유지, 해제 시 대표 요율 복귀", async ({ page }) => {
+  await openShop(page);
+  await page.getByRole("button", { name: "무게로 배송비 추정" }).click();
+  await page.getByLabel("실무게 kg").fill("1.2"); // 1.5kg 청구 — 대표 요율이면 9,400
+
+  await page.getByRole("button", { name: "내 배대지 요율 입력" }).click();
+  await page.getByLabel("첫 0.5kg 요금").fill("6000");
+  await page.getByLabel("추가 0.5kg당").fill("1000");
+  await page.getByRole("button", { name: "요율 저장" }).click();
+  await page.getByRole("button", { name: "이 금액 적용" }).click();
+  await expect(page.getByLabel("국제 배송비")).toHaveValue("8000"); // 6,000 + 2×1,000
+
+  // 새로고침 후에도 내 요율 유지 (localStorage) — 토글 라벨에 '내 요율' 표기
+  await page.reload();
+  await page.getByRole("button", { name: "무게로 배송비 추정 (배대지 내 요율)" }).click();
+  await page.getByLabel("실무게 kg").fill("0.5");
+  await page.getByRole("button", { name: "이 금액 적용" }).click();
+  await expect(page.getByLabel("국제 배송비")).toHaveValue("6000");
+
+  // 해제하면 대표 요율(첫 0.5kg 7,000)로 돌아온다
+  await page.getByRole("button", { name: "대표 요율로" }).click();
+  await page.getByRole("button", { name: "이 금액 적용" }).click();
+  await expect(page.getByLabel("국제 배송비")).toHaveValue("7000");
+});
+
 test("출발국을 바꾸면 그 나라 요율로 추정된다 — 미국 첫 0.5kg 9,000원", async ({ page }) => {
   await openShop(page);
   await page.getByLabel("출발국").selectOption("US");

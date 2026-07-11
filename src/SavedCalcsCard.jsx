@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { T, chipBtn, panel } from "./ui.jsx";
-import { loadSavedCalcs, saveSavedCalcs, newSavedCalc, MAX_SAVED_CALCS } from "./lib/savedCalcs.js";
+import {
+  loadSavedCalcs, saveSavedCalcs, newSavedCalc, MAX_SAVED_CALCS,
+  exportSavedCalcs, parseImportedSavedCalcs, mergeSavedCalcs,
+} from "./lib/savedCalcs.js";
+import { todayStr } from "./lib/orders.js";
+import JsonBackupRow from "./JsonBackupRow.jsx";
 
 /* 계산 저장함 카드 (직구 탭 결과 아래) — 현재 계산을 이름 붙여 보관.
    makeSnapshot(): { query, summary } — 부모(ShopTab)가 공유 링크와 같은
@@ -79,6 +84,21 @@ export default function SavedCalcsCard({ makeSnapshot }) {
           ))}
         </ul>
       )}
+      <JsonBackupRow
+        exportText={() => exportSavedCalcs(saved)}
+        filename={`yen-calc-saved-${todayStr()}.json`}
+        exportDisabled={saved.length === 0}
+        fileLabel="계산 저장함 JSON 파일"
+        onImportText={(text) => {
+          const next = mergeSavedCalcs(saved, parseImportedSavedCalcs(text));
+          // 저장함이 가득해 기존 항목과 교체될 수 있으므로, 길이 차가 아닌
+          // '새로 들어온 id 수'를 센다
+          const before = new Set(saved.map((s) => s.id));
+          const added = next.filter((s) => !before.has(s.id)).length;
+          persist(next);
+          return `✓ ${added}건 가져옴 (중복 제외, 최대 ${MAX_SAVED_CALCS}건)`;
+        }}
+      />
       <p style={{ margin: "8px 0 0", fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
         저장함은 이 브라우저에만 보관됩니다(서버 전송 없음). 열면 저장 시점의 환율로 계산됩니다.
       </p>

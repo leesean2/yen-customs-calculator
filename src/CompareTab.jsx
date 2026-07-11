@@ -5,6 +5,7 @@ import { calcImportCost } from "./lib/customs.js";
 import { timeoutSignal } from "./lib/net.js";
 import useOriginCountry from "./hooks/useOriginCountry.js";
 import OriginSelectField from "./OriginSelect.jsx";
+import CategoryOptions from "./CategoryOptions.jsx";
 
 /* ──────────────────────────────────────────────
    해외 vs 국내 가격 비교 탭 (출발국 선택)
@@ -241,9 +242,7 @@ export default function CompareTab({ jr, ur, krwPer }) {
           hint="위 링크에서 확인한 현지 세금 포함가를 입력하세요" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} />
         <SelectField label="품목 (관부가세 계산용)" value={catId} onChange={setCatId}>
-          {CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>{c.label} — 관세 {Math.round(c.duty * 100)}%</option>
-          ))}
+          <CategoryOptions />
         </SelectField>
       </section>
 

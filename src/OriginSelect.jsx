@@ -1,9 +1,11 @@
 import { T, rateText, SelectField, linkBtn } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 
-/* 출발국 선택 + 적용 환율 상태 힌트 (직구 탭·직구여행 비교 탭 공용)
-   origin: useOriginCountry 반환값. 실패·캐시 상태에서는 재시도 버튼을 붙인다 */
-export default function OriginSelectField({ value, onChange, origin }) {
+/* 출발국 선택 + 적용 환율 상태 힌트 (직구·여행자·직구여행 비교 탭 공용)
+   origin: useOriginCountry 반환값. 실패·캐시 상태에서는 재시도 버튼을 붙인다.
+   여행자 탭은 label="여행국"·showLimit=false — 직구 소액면세 한도($150/$200)를
+   보여주면 여행자 한도($800)와 혼동되기 때문. */
+export default function OriginSelectField({ value, onChange, origin, label = "출발국", showLimit = true }) {
   const { country, rate, status, date, retry } = origin;
   const hint = {
     shared: `공유된 환율 ${rateText(rate, country)} 사용 중`,
@@ -19,7 +21,7 @@ export default function OriginSelectField({ value, onChange, origin }) {
 
   return (
     <SelectField
-      label="출발국"
+      label={label}
       value={value}
       onChange={onChange}
       note={hint && (
@@ -35,7 +37,7 @@ export default function OriginSelectField({ value, onChange, origin }) {
     >
       {ORIGIN_COUNTRIES.map((c) => (
         <option key={c.id} value={c.id}>
-          {c.flag} {c.label} — 면세한도 ${c.deMinimisUsd}
+          {c.flag} {c.label}{showLimit ? ` — 면세한도 $${c.deMinimisUsd}` : ""}
         </option>
       ))}
     </SelectField>

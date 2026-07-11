@@ -7,15 +7,17 @@ import {
 
 /**
  * 배대지 국제 배송비 추정 — 실무게와 부피무게 중 큰 쪽(청구 무게)을
- * 0.5kg 단위로 올림해 대표 요율(첫 0.5kg base + 이후 0.5kg당 step)을 적용한다.
+ * 0.5kg 단위로 올림해 요율(첫 0.5kg base + 이후 0.5kg당 step)을 적용한다.
  *
  * weightKg: 실무게(kg) · w/l/h: 상자 치수(cm) — 셋 다 있어야 부피무게를 계산한다
  * (하나라도 빠지면 실무게만 사용: 부피를 모르는 게 보통이라 선택 입력).
+ * rate: { base, step } 오버라이드 — 사용자가 저장한 '내 배대지 요율'.
+ *       없으면 출발국 대표 요율(SHIPPING_RATES)을 쓴다.
  * 반환: { actualKg, volumeKg, billedKg, costKrw, volumeApplied, overMaxKg } | null
  * null: 실무게·부피무게 모두 없어 추정 자체가 불가능할 때.
  */
-export function estimateShipping({ countryId, weightKg, w, l, h }) {
-  const rate = SHIPPING_RATES[countryId];
+export function estimateShipping({ countryId, weightKg, w, l, h, rate: rateOverride }) {
+  const rate = rateOverride ?? SHIPPING_RATES[countryId];
   if (!rate) return null;
 
   const actualKg = weightKg > 0 ? weightKg : 0;
@@ -37,4 +39,32 @@ export function estimateShipping({ countryId, weightKg, w, l, h }) {
     volumeApplied,
     overMaxKg: billedKg > MAX_PARCEL_KG,
   };
+}
+
+/* ── 내 배대지 요율 (localStorage) — 대표 요율은 어디까지나 대표값이라,
+   자기 배대지 요금표(첫 0.5kg·추가 0.5kg당)를 국가별로 저장해 추정을
+   실제 요금에 수렴시킨다. { [countryId]: { base, step } } ── */
+const CUSTOM_KEY = "yen-calc:ship-rates:v1";
+
+const validRate = (r) => r && r.base > 0 && r.step >= 0;
+
+export function loadCustomShipRates() {
+  try {
+    const all = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? "{}");
+    if (!all || typeof all !== "object" || Array.isArray(all)) return {};
+    const out = {};
+    for (const id of Object.keys(SHIPPING_RATES)) {
+      const r = all[id];
+      if (validRate(r)) out[id] = { base: +r.base, step: +r.step };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function saveCustomShipRates(map) {
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(map));
+  } catch { /* storage 불가 환경은 무시 */ }
 }
