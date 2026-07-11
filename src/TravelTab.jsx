@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, SelectField, Row, Stamp, panel } from "./ui.jsx";
+import { T, won, usd, yen, NumField, SelectField, CheckField, Row, Stamp, panel } from "./ui.jsx";
 import {
   TRAVELER_LIMIT_USD, TRAVEL_RATES, LIQUOR_TYPES,
   ALCOHOL_ALLOWANCE, TOBACCO_LIMIT_CIGARETTES, PERFUME_LIMIT_ML,
@@ -76,10 +76,7 @@ export default function TravelTab({ jr, ur }) {
             <option key={r.id} value={r.id}>{r.label}</option>
           ))}
         </SelectField>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
-          <input type="checkbox" checked={selfReport} onChange={(e) => setSelfReport(e.target.checked)} style={{ width: 18, height: 18, accentColor: T.indigo }} />
-          <span style={{ fontSize: 14, fontWeight: 600 }}>세관에 자진신고 (세액 30% 감면, 최대 20만원)</span>
-        </label>
+        <CheckField label="세관에 자진신고 (세액 30% 감면, 최대 20만원)" checked={selfReport} onChange={setSelfReport} />
       </section>
 
       <section style={{ ...panel(travel.taxed ? T.red : T.green), padding: 18 }}>

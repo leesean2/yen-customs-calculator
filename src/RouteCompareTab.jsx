@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, NumField, SelectField, Row, panel } from "./ui.jsx";
+import { T, won, NumField, SelectField, CheckField, Row, panel } from "./ui.jsx";
 import { CATEGORIES, TRAVEL_RATES, TRAVELER_LIMIT_USD } from "./data/categories.js";
 import { calcImportCost, calcTravelTax } from "./lib/customs.js";
 import useOriginCountry from "./hooks/useOriginCountry.js";
@@ -103,11 +103,7 @@ export default function RouteCompareTab({ jr, ur, krwPer }) {
             <option key={r.id} value={r.id}>{r.label}</option>
           ))}
         </SelectField>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
-          <input type="checkbox" checked={selfReport} onChange={(e) => setSelfReport(e.target.checked)}
-            style={{ width: 18, height: 18, accentColor: T.indigo }} />
-          <span style={{ fontSize: 14, fontWeight: 600 }}>여행 시 세관 자진신고 (세액 30% 감면)</span>
-        </label>
+        <CheckField label="여행 시 세관 자진신고 (세액 30% 감면)" checked={selfReport} onChange={setSelfReport} />
       </section>
 
       {/* 판정 */}

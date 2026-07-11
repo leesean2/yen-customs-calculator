@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { T, NumField, SelectField, panel } from "./ui.jsx";
+import { T, NumField, SelectField, CheckField, panel } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
@@ -223,11 +223,7 @@ export default function AlertTab({ rateAlert }) {
           </SelectField>
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, cursor: "pointer" }}>
-          <input type="checkbox" checked={config.enabled} onChange={(e) => update({ enabled: e.target.checked })}
-            style={{ width: 18, height: 18, accentColor: T.indigo }} />
-          <span style={{ fontSize: 14, fontWeight: 600 }}>알림 활성화</span>
-        </label>
+        <CheckField label="알림 활성화" checked={config.enabled} onChange={(v) => update({ enabled: v })} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           {notifPerm === "default" && (

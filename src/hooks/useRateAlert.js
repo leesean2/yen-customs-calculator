@@ -47,9 +47,10 @@ export default function useRateAlert(krwPer, refresh) {
     });
   }, []);
 
-  const cur = config.cur || "JPY";
+  // 저장값이 손상되어 미지원 통화면 엔으로 정규화 — 단위 표기와 조회 키가 어긋나지 않게
+  const cur = ORIGIN_COUNTRIES.some((c) => c.currency === config.cur) ? config.cur : "JPY";
   const { rateUnit: unit, rateUnitLabel: unitLabel } =
-    ORIGIN_COUNTRIES.find((c) => c.currency === cur) ?? ORIGIN_COUNTRIES[0];
+    ORIGIN_COUNTRIES.find((c) => c.currency === cur);
   const unitText = `${unit === 1 ? "1" : unit}${unitLabel}`; // "100엔" · "1달러" 등
 
   const live = krwPer?.[cur] ?? 0; // 1단위당 원

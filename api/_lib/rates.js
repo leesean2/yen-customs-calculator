@@ -40,11 +40,11 @@ export async function fromYahoo() {
     if (!v) throw new Error("yahoo 형식 오류");
     return v;
   };
-  // JPY·USD는 필수(실패 시 소스 전체 실패), EUR·CNY는 있으면 좋은 부가 정보
+  // 네 통화를 동시에 요청 — JPY·USD는 필수(실패 시 소스 전체 실패), EUR·CNY는 부가 정보
+  const extrasPromise = Promise.allSettled(EXTRA_CURRENCIES.map((c) => get(`${c}KRW=X`)));
   const [jpy, usd] = await Promise.all([get("JPYKRW=X"), get("KRW=X")]);
   const krwPer = { JPY: jpy, USD: usd };
-  const extras = await Promise.allSettled(EXTRA_CURRENCIES.map((c) => get(`${c}KRW=X`)));
-  extras.forEach((e, i) => {
+  (await extrasPromise).forEach((e, i) => {
     if (e.status === "fulfilled") krwPer[EXTRA_CURRENCIES[i]] = e.value;
   });
   return { jpyKrw: jpy, usdKrw: usd, krwPer, source: "실시간 시세 (Yahoo Finance)" };

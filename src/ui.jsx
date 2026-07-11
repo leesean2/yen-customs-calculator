@@ -79,6 +79,20 @@ export function TextField({ label, value, onChange, placeholder, hint }) {
   );
 }
 
+/* 체크박스 + 라벨 (자진신고·알림 활성화 등 탭 공용) */
+export function CheckField({ label, checked, onChange }) {
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
+      <input
+        type="checkbox" checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ width: 18, height: 18, accentColor: T.indigo }}
+      />
+      <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
+    </label>
+  );
+}
+
 /* 카드 패널 공통 골격 — 각 탭의 입력·결과 카드가 공유. 테두리 색만 상황에 따라 바뀐다 */
 export const panel = (borderColor = T.line) => ({
   background: T.card,

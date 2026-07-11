@@ -139,6 +139,23 @@ test.describe("출발국 환율 폴백·가드", () => {
     await expect(page.getByText("환율을 불러오지 못했습니다")).toBeVisible();
   });
 
+  test("M10. 실시간 환율 맵에 유로가 있으면 ECB 별도 조회 없이 우선 사용한다", async ({ page }) => {
+    await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    // er-api만 열어 실시간 맵(krwPer)에 EUR을 공급 — frankfurter는 차단 상태 유지
+    await page.route("**/open.er-api.com/**", (r) =>
+      r.fulfill({ json: { result: "success", rates: { KRW: 1000, JPY: 100, EUR: 0.8, CNY: 5 } } })
+    );
+    await page.goto("/");
+    await page.getByLabel("국제 배송비").fill("0");
+    await page.getByLabel("출발국").selectOption("EU");
+    await expect(page.getByText("적용 환율 1,250원/유로 — 실시간 환율")).toBeVisible();
+
+    // €100 = 125,000원 = $125 ≤ $150 → 면세 (환율은 자동 반영된 1달러=1,000원)
+    await page.getByLabel("상품 가격").fill("100");
+    await expect(page.getByLabel("면세 대상")).toBeVisible();
+    await expect(rowValue(page, "최종 예상 비용")).toHaveText("125,000원");
+  });
+
   test("M9. 출발국을 바꾸면 공유 스냅샷을 버리고, 돌아와도 실시간 환율을 쓴다", async ({ page }) => {
     await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
     await mockFrankfurter(page); // 실시간 조회는 1,400원/유로
