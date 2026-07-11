@@ -66,7 +66,10 @@ export function parseImportedOrders(text) {
   if (!Array.isArray(list)) throw new Error("주문 목록이 없습니다");
   const cutoff = cutoffStr();
   return list
-    .filter((o) => o?.id && typeof o.date === "string" && o.date >= cutoff && o?.seller && o?.goodsJpy > 0)
+    .filter((o) =>
+      o?.id && typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}/.test(o.date) &&
+      o.date >= cutoff && o?.seller && o?.goodsJpy > 0
+    )
     .map((o) => ({
       id: String(o.id),
       date: o.date.slice(0, 10),

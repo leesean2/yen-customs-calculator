@@ -90,6 +90,9 @@ export default function RateTrendChart({ currency }) {
       </div>
 
       {state.status === "loading" && <p style={{ margin: "10px 0 4px", fontSize: 12, color: T.muted }}>추이 불러오는 중…</p>}
+      {state.status === "done" && !done && (
+        <p style={{ margin: "10px 0 4px", fontSize: 12, color: T.muted }}>표시할 추이 데이터가 부족합니다 (영업일 2일 이상 필요).</p>
+      )}
       {state.status === "error" && (
         <p style={{ margin: "10px 0 4px", fontSize: 12, color: T.muted }}>
           추이를 불러오지 못했습니다.

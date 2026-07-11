@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, NumField, SelectField, CheckField, Row, panel } from "./ui.jsx";
+import { T, won, NumField, SelectField, CheckField, Row, StampBadge, panel } from "./ui.jsx";
 import { CATEGORIES, TRAVEL_RATES, TRAVELER_LIMIT_USD } from "./data/categories.js";
 import { calcImportCost, calcTravelTax } from "./lib/customs.js";
 import useOriginCountry from "./hooks/useOriginCountry.js";
@@ -20,18 +20,7 @@ function RouteStamp({ verdict }) {
     shop: { color: T.red, main: "직구 유리", sub: "SHIP IT" },
     even: { color: T.muted, main: "비슷함", sub: "ABOUT EQUAL" },
   }[verdict];
-  return (
-    <div style={{
-      width: 86, height: 86, borderRadius: "50%",
-      border: `3.5px solid ${conf.color}`, color: conf.color,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      transform: "rotate(-8deg)", flexShrink: 0,
-      fontWeight: 900, letterSpacing: "0.05em", userSelect: "none",
-    }}>
-      <span style={{ fontSize: 19, lineHeight: 1 }}>{conf.main}</span>
-      <span style={{ fontSize: 8.5, marginTop: 4, fontWeight: 700, letterSpacing: "0.12em" }}>{conf.sub}</span>
-    </div>
-  );
+  return <StampBadge color={conf.color} main={conf.main} sub={conf.sub} />;
 }
 
 const cardStyle = { ...panel(), padding: "18px 18px 6px", marginBottom: 16 };

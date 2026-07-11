@@ -3,12 +3,7 @@ import { test, expect } from "@playwright/test";
 /* 구매 이력 내보내기/가져오기 E2E — 기록 → JSON 다운로드 → 저장소 초기화 →
    같은 파일 가져오기로 이력이 복원되는 왕복을 검증한다. */
 
-async function openShop(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
-}
+import { openWithRates as openShop } from "./helpers.js";
 
 test("내보낸 JSON을 가져오면 이력이 복원된다", async ({ page }) => {
   await openShop(page);

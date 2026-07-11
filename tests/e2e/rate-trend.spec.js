@@ -8,8 +8,10 @@ import { test, expect } from "@playwright/test";
                         USD 1,350 → 1,420 → 1,400
    ────────────────────────────────────────────── */
 
+import { blockExternal } from "./helpers.js";
+
 async function openTrend(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await blockExternal(page);
   await page.route(/api\.frankfurter\.dev\/v1\/\d{4}-\d{2}-\d{2}\.\./, (r) => {
     const base = new URL(r.request().url()).searchParams.get("base");
     const rates = base === "JPY"

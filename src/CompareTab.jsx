@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { T, won, yen, money, NumField, SelectField, Row, panel } from "./ui.jsx";
+import { T, won, yen, money, NumField, SelectField, Row, StampBadge, panel } from "./ui.jsx";
 import { CATEGORIES } from "./data/categories.js";
 import { calcImportCost } from "./lib/customs.js";
 import { timeoutSignal } from "./lib/net.js";
@@ -182,18 +182,7 @@ function VerdictStamp({ verdict, countryId }) {
     korea: { color: T.red, main: "국내 이득", sub: "BUY DOMESTIC" },
     even: { color: T.muted, main: "비슷함", sub: "ABOUT EQUAL" },
   }[verdict];
-  return (
-    <div style={{
-      width: 86, height: 86, borderRadius: "50%",
-      border: `3.5px solid ${conf.color}`, color: conf.color,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      transform: "rotate(-8deg)", flexShrink: 0,
-      fontWeight: 900, letterSpacing: "0.05em", userSelect: "none",
-    }}>
-      <span style={{ fontSize: 19, lineHeight: 1 }}>{conf.main}</span>
-      <span style={{ fontSize: 8.5, marginTop: 4, fontWeight: 700, letterSpacing: "0.12em" }}>{conf.sub}</span>
-    </div>
-  );
+  return <StampBadge color={conf.color} main={conf.main} sub={conf.sub} />;
 }
 
 const cardStyle = { ...panel(), padding: "16px 16px 4px", marginBottom: 14 };

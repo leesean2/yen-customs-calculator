@@ -5,17 +5,14 @@ import { test, expect } from "@playwright/test";
    테스트 환율: 100엔 = 1,000원, 1달러 = 1,000원
    ────────────────────────────────────────────── */
 
+import { openWithRates, rowValue } from "./helpers.js";
+
 async function openCompare(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
+  await openWithRates(page);
   await page.getByRole("button", { name: "국내비교" }).click();
 }
 
 const visibleOrigin = (page) => page.getByLabel("출발국").filter({ visible: true });
-const rowValue = (page, label) =>
-  page.getByText(label).locator("xpath=following-sibling::span[1]");
 
 test("일본 기본 — 기존 라쿠텐 검색·링크와 판정이 그대로다", async ({ page }) => {
   await openCompare(page);

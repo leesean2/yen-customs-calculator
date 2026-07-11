@@ -4,13 +4,7 @@ import { test, expect } from "@playwright/test";
    일치하는지 검증한다. (환율 셋업은 tax-boundaries.spec.js와 동일:
    100엔 = 1,000원, 1달러 = 1,000원 → $환산 = ¥ ÷ 100) */
 
-async function openShop(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
-  await page.getByLabel("국제 배송비").fill("0");
-}
+import { openShop } from "./helpers.js";
 
 const toggle = (page) => page.getByRole("button", { name: "계산 근거 펼쳐보기" });
 

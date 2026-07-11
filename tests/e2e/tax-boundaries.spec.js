@@ -10,18 +10,7 @@ import { test, expect } from "@playwright/test";
    외부 환율 API는 전부 차단해 결과를 결정적으로 만든다.
    ────────────────────────────────────────────── */
 
-/** 직구 탭 초기화: 외부 요청 차단 → 환율 수동 입력 → 국제 배송비 0 */
-async function openShop(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
-  await page.getByLabel("국제 배송비").fill("0");
-}
-
-/** Row 컴포넌트의 값 스팬 — 라벨 스팬의 바로 다음 형제 */
-const rowValue = (page, label) =>
-  page.getByText(label).locator("xpath=following-sibling::span[1]");
+import { openShop, rowValue } from "./helpers.js";
 
 const stampTaxed = (page) => page.getByLabel("과세 대상");
 const stampFree = (page) => page.getByLabel("면세 대상");

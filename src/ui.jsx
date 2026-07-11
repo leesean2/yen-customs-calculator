@@ -123,23 +123,37 @@ export function SelectField({ label, value, onChange, note, children }) {
   );
 }
 
-/* 인장(도장) 스타일 판정 표시 — 직구·여행 탭 공용 */
-export function Stamp({ taxed }) {
-  const color = taxed ? T.red : T.green;
+/* 인장(도장) 배지 원형 골격 — 판정 표시 공용 (면세/과세 · 직구vs여행 · 직구vs국내)
+   big: 두 글자 판정(면세/과세)용 큰 글씨, ring: 테두리 안쪽 이중선 색 */
+export function StampBadge({ color, main, sub, big = false, ring, ariaLabel }) {
   return (
-    <div aria-label={taxed ? "과세 대상" : "면세 대상"} style={{
+    <div aria-label={ariaLabel} style={{
       width: 86, height: 86, borderRadius: "50%",
       border: `3.5px solid ${color}`, color,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       transform: "rotate(-8deg)", flexShrink: 0,
-      boxShadow: `inset 0 0 0 2px ${taxed ? T.redSoft : T.greenSoft}`,
-      fontWeight: 900, letterSpacing: "0.1em", userSelect: "none",
+      boxShadow: ring ? `inset 0 0 0 2px ${ring}` : undefined,
+      fontWeight: 900, letterSpacing: big ? "0.1em" : "0.05em", userSelect: "none",
     }}>
-      <span style={{ fontSize: 26, lineHeight: 1 }}>{taxed ? "과세" : "면세"}</span>
-      <span style={{ fontSize: 9.5, marginTop: 4, fontWeight: 700, letterSpacing: "0.15em" }}>
-        {taxed ? "TAXABLE" : "DUTY FREE"}
+      <span style={{ fontSize: big ? 26 : 19, lineHeight: 1 }}>{main}</span>
+      <span style={{ fontSize: big ? 9.5 : 8.5, marginTop: 4, fontWeight: 700, letterSpacing: big ? "0.15em" : "0.12em" }}>
+        {sub}
       </span>
     </div>
+  );
+}
+
+/* 면세/과세 판정 인장 — 직구·여행 탭 공용 */
+export function Stamp({ taxed }) {
+  return (
+    <StampBadge
+      big
+      color={taxed ? T.red : T.green}
+      ring={taxed ? T.redSoft : T.greenSoft}
+      ariaLabel={taxed ? "과세 대상" : "면세 대상"}
+      main={taxed ? "과세" : "면세"}
+      sub={taxed ? "TAXABLE" : "DUTY FREE"}
+    />
   );
 }
 

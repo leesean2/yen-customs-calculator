@@ -29,12 +29,13 @@ describe("parseImportedOrders — 검증·정리", () => {
     expect(() => parseImportedOrders('{"orders": 3}')).toThrow();
   });
 
-  it("보존기간(60일)이 지난 기록과 필수 필드 누락은 걸러진다", () => {
+  it("보존기간(60일) 경과·필수 필드 누락·잘못된 날짜 형식은 걸러진다", () => {
     const list = [
       order(),
       order({ id: "old", date: daysAgo(61) }),
       order({ id: "noseller", seller: "" }),
       order({ id: "zero", goodsJpy: 0 }),
+      order({ id: "baddate", date: "내일쯤" }),
     ];
     const parsed = parseImportedOrders(JSON.stringify({ orders: list }));
     expect(parsed.map((o) => o.id)).toEqual(["a1"]);

@@ -9,8 +9,10 @@ import { test, expect } from "@playwright/test";
    과세환율: 1엔 = 11원, 1달러 = 1,000원 → 같은 ¥라도 달러 환산이 10% 높다
    ────────────────────────────────────────────── */
 
+import { blockExternal, fillRates } from "./helpers.js";
+
 async function openShopWithCustomsRate(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await blockExternal(page);
   await page.route("**/api/customs-rate", (r) =>
     r.fulfill({
       json: {
@@ -22,8 +24,7 @@ async function openShopWithCustomsRate(page) {
     })
   );
   await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
+  await fillRates(page);
   await page.getByLabel("국제 배송비").fill("0");
 }
 
@@ -44,7 +45,7 @@ test("C2. 과세환율로는 한도를 넘는 경계 금액이면 판정 괴리 
 });
 
 test("C3. API 미구성(개발 환경 포함)이면 과세환율 줄이 없다", async ({ page }) => {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await blockExternal(page);
   await page.goto("/"); // /api/customs-rate는 vite dev에서 HTML — 훅이 무시한다
   await page.getByLabel("JPY → KRW").fill("1000");
   await page.getByLabel("USD → KRW").fill("1000");

@@ -8,16 +8,12 @@ import { test, expect } from "@playwright/test";
    테스트 환율: 100엔 = 1,000원, 1달러 = 1,000원 (¥40,000 = $400)
    ────────────────────────────────────────────── */
 
+import { openWithRates, rowValue } from "./helpers.js";
+
 async function openTravel(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
+  await openWithRates(page);
   await page.getByRole("button", { name: "여행자" }).click();
 }
-
-const rowValue = (page, label) =>
-  page.getByText(label).locator("xpath=following-sibling::span[1]");
 
 test.describe("술 — 2병·2L·$400 세 조건 모두 충족해야 면세", () => {
   test("A1. 정확히 2병·2L·$400 경계는 면세", async ({ page }) => {

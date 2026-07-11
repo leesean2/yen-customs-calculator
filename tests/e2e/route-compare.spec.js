@@ -8,18 +8,14 @@ import { test, expect } from "@playwright/test";
    테스트 환율: 100엔 = 1,000원(1엔 = 10원), 1달러 = 1,000원 → $환산 = ¥ ÷ 100
    ────────────────────────────────────────────── */
 
+import { openWithRates, rowValue } from "./helpers.js";
+
 async function openRoute(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
+  await openWithRates(page);
   await page.getByRole("button", { name: "직구·여행" }).click();
   await page.getByLabel("일본 상품 가격").fill("50000"); // 기본 $500
   await page.getByLabel("직구 시").fill("0");            // 국제배송비 0으로 고정
 }
-
-const rowValue = (page, label) =>
-  page.getByText(label).locator("xpath=following-sibling::span[1]");
 
 test("$500 상품 — 직구는 전체 과세, 여행은 면세 → 여행 유리", async ({ page }) => {
   await openRoute(page);

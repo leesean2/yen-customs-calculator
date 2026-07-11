@@ -3,20 +3,14 @@ import { test, expect } from "@playwright/test";
 /* 세율 데이터 신선도 배너 · 계산 결과 URL 공유 · 월간 지출 요약 E2E
    (환율 셋업은 다른 스펙과 동일: 100엔 = 1,000원, 1달러 = 1,000원) */
 
-async function openShop(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
-  await page.goto("/");
-  await page.getByLabel("JPY → KRW").fill("1000");
-  await page.getByLabel("USD → KRW").fill("1000");
-  await page.getByLabel("국제 배송비").fill("0");
-}
+import { blockExternal, openShop } from "./helpers.js";
 
 const STALE_BANNER = /세율이 최신인지 확인이 필요합니다/;
 
 test.describe("세율 데이터 신선도 배너", () => {
   test("기준일 90일 이내에는 배너가 없다", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-08-01T12:00:00") }); // 기준일 +24일
-    await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    await blockExternal(page);
     await page.goto("/");
     await expect(page.getByText("엔화 직구 · 여행 세금 계산기")).toBeVisible();
     await expect(page.getByText(STALE_BANNER)).toBeHidden();
@@ -24,7 +18,7 @@ test.describe("세율 데이터 신선도 배너", () => {
 
   test("기준일에서 90일이 지나면 확인 배너가 뜬다", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-11-15T12:00:00") }); // 기준일 +130일
-    await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    await blockExternal(page);
     await page.goto("/");
     await expect(page.getByText(STALE_BANNER)).toBeVisible();
     await expect(page.getByText(/기준일\(2026-07-08\)/)).toBeVisible();
@@ -34,7 +28,7 @@ test.describe("세율 데이터 신선도 배너", () => {
 
 test.describe("계산 결과 URL 공유", () => {
   test("공유 링크로 열면 입력값·환율·결과가 그대로 재현된다", async ({ page }) => {
-    await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+    await blockExternal(page);
     await page.goto("/?p=15100&l=0&i=0&c=hobby&j=1000&u=1000");
 
     await expect(page.getByLabel("상품 가격")).toHaveValue("15100");

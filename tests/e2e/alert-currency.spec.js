@@ -8,8 +8,10 @@ import { test, expect } from "@playwright/test";
    → 1달러 = 1,000원 · 100엔 = 1,000원 · 1유로 = 1,250원 · 1위안 = 200원
    ────────────────────────────────────────────── */
 
+import { blockExternal } from "./helpers.js";
+
 async function openAlert(page) {
-  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await blockExternal(page);
   await page.route("**/open.er-api.com/**", (r) =>
     r.fulfill({
       json: {
