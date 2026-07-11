@@ -213,7 +213,7 @@ export default function App() {
         {tabPanel("shop", <ShopTab jr={jr} ur={ur} krwPer={rates?.krwPer} shared={shared} />)}
         {tabPanel("travel", <TravelTab jr={jr} ur={ur} />)}
         {tabPanel("route", <RouteCompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
-        {tabPanel("compare", <CompareTab jpyKrw={jr} usdKrw={ur} />)}
+        {tabPanel("compare", <CompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("alert", <AlertTab rateAlert={rateAlert} />)}
 
         <footer style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${T.line}`, fontSize: 11, color: T.muted, textAlign: "center" }}>
