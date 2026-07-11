@@ -1,4 +1,4 @@
-import { T, rateText, SelectField } from "./ui.jsx";
+import { T, rateText, SelectField, linkBtn } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 
 /* 출발국 선택 + 적용 환율 상태 힌트 (직구 탭·직구여행 비교 탭 공용)
@@ -26,10 +26,7 @@ export default function OriginSelectField({ value, onChange, origin }) {
         <span style={{ display: "block", fontSize: 11.5, color: failed ? T.red : T.muted, marginTop: 4 }}>
           {hint}
           {stale && (
-            <button onClick={retry} style={{
-              border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
-              fontSize: 11.5, fontWeight: 700, padding: 0, marginLeft: 6, textDecoration: "underline",
-            }}>
+            <button onClick={retry} style={{ ...linkBtn, marginLeft: 6 }}>
               다시 시도
             </button>
           )}

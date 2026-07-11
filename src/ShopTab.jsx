@@ -180,15 +180,18 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
     customsGoodsUsd != null && !shop.hasExcluded &&
     (customsGoodsUsd > country.deMinimisUsd) !== shop.overLimit;
 
-  // 결과 링크 공유 — 입력값+환율 스냅샷을 URL에 담아 복사
+  // 입력값+환율 스냅샷 URL — 결과 링크 공유와 계산 저장함이 같은 스냅샷을 쓴다
+  const makeShareUrl = () =>
+    buildShareUrl({
+      items, localShip, intlShip, countryId, jr, ur,
+      originRate: isAppCurrency ? null : or,
+    });
+
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
   useEffect(() => () => clearTimeout(copyTimer.current), []);
   const copyShareLink = async () => {
-    const url = buildShareUrl({
-      items, localShip, intlShip, countryId, jr, ur,
-      originRate: isAppCurrency ? null : or,
-    });
+    const url = makeShareUrl();
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -350,10 +353,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
       <SavedCalcsCard
         makeSnapshot={() => ({
           // 공유 링크와 같은 스냅샷 — 저장함은 그 쿼리 부분만 보관한다
-          query: new URL(buildShareUrl({
-            items, localShip, intlShip, countryId, jr, ur,
-            originRate: isAppCurrency ? null : or,
-          })).search,
+          query: new URL(makeShareUrl()).search,
           summary: `${country.flag} ${money(shop.goodsJpy, country)}${shop.taxed ? ` · 세금 ${won(shop.totalTax)}` : ""} · 최종 ${won(shop.final)}`,
         })}
       />

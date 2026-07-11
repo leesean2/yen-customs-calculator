@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { T, chipBtn, panel } from "./ui.jsx";
+import { T, chipBtn, linkBtn, panel } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchKrwSeries } from "./lib/fx.js";
 
@@ -97,10 +97,7 @@ export default function RateTrendChart({ currency, target = 0 }) {
       {state.status === "error" && (
         <p style={{ margin: "10px 0 4px", fontSize: 12, color: T.muted }}>
           추이를 불러오지 못했습니다.
-          <button onClick={() => setAttempt((n) => n + 1)} style={{
-            border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
-            fontSize: 12, fontWeight: 700, padding: 0, marginLeft: 6, textDecoration: "underline",
-          }}>다시 시도</button>
+          <button onClick={() => setAttempt((n) => n + 1)} style={{ ...linkBtn, fontSize: 12, marginLeft: 6 }}>다시 시도</button>
         </p>
       )}
 

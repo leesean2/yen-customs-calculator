@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { T, chipBtn } from "./ui.jsx";
+import { T, chipBtn, linkBtn } from "./ui.jsx";
 import { timeoutSignal } from "./lib/net.js";
 
 /* ──────────────────────────────────────────────
@@ -96,8 +96,3 @@ export default function HsRateField({ applied, onApply, onClear }) {
     </div>
   );
 }
-
-const linkBtn = {
-  border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
-  fontSize: 11.5, fontWeight: 700, padding: 0, textDecoration: "underline",
-};

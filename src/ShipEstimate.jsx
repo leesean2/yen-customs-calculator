@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { T, won, chipBtn } from "./ui.jsx";
+import { T, won, chipBtn, linkBtn } from "./ui.jsx";
 import { estimateShipping } from "./lib/shipping.js";
 import { BILLING_STEP_KG, MAX_PARCEL_KG, SHIPPING_RATES, SHIPPING_RATES_VERIFIED } from "./data/shipping.js";
 
@@ -85,7 +85,6 @@ function MiniNum({ label, value, onChange }) {
       <input
         type="number" inputMode="decimal" min="0" value={value}
         onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
         style={{
           // fontSize 16: iOS Safari 포커스 확대 방지 (ui.jsx 입력들과 같은 이유)
           width: "100%", border: `1.5px solid ${T.line}`, borderRadius: 8, background: T.field,
@@ -96,8 +95,3 @@ function MiniNum({ label, value, onChange }) {
     </label>
   );
 }
-
-const linkBtn = {
-  border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
-  fontSize: 11.5, fontWeight: 700, padding: 0, textDecoration: "underline",
-};

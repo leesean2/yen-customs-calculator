@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 /* 공용 테마 · 포매터 · 폼 컴포넌트 (직구/여행/가격비교 탭에서 공유)
  *
  * 색상 값은 CSS 변수(var(--c-*))를 가리킨다 — 실제 색은 index.css에서
@@ -87,6 +89,41 @@ export const chipBtn = ({ solid = false, color = T.indigo, disabled = false } = 
   borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700,
   cursor: disabled ? "not-allowed" : "pointer",
 });
+
+/* 밑줄 텍스트 링크형 버튼 — 입력란 아래 접이식 기능의 손잡이·해제 등
+   (HS세율·배송비 추정 공용) */
+export const linkBtn = {
+  border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
+  fontSize: 11.5, fontWeight: 700, padding: 0, textDecoration: "underline",
+};
+
+/* 결과 카드 하단 접이식 토글 골격 (계산 근거·통관 절차 안내 공용)
+   label: 노드 또는 (open) => 노드 — 열림 상태에 따라 문구가 바뀌면 함수로 */
+export function Disclosure({ label, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderTop: `1px dashed ${T.line}`, marginTop: 10, paddingTop: 10 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          border: "none", background: "transparent", padding: 0,
+          fontSize: 12.5, fontWeight: 700, color: T.indigo, cursor: "pointer",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{ display: "inline-block", transition: "transform .15s", transform: open ? "rotate(90deg)" : "none" }}
+        >
+          ▸
+        </span>
+        {typeof label === "function" ? label(open) : label}
+      </button>
+      {open && children}
+    </div>
+  );
+}
 
 /* 체크박스 + 라벨 (자진신고·알림 활성화 등 탭 공용) */
 export function CheckField({ label, checked, onChange }) {
