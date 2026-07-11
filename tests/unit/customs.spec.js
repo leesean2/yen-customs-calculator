@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcImportCost, calcTravelTax, calcAlcoholTax } from "../../src/lib/customs.js";
+import { calcImportCost, calcCartImportCost, calcTravelTax, calcAlcoholTax } from "../../src/lib/customs.js";
 import { CATEGORIES, TRAVEL_RATES, LIQUOR_TYPES } from "../../src/data/categories.js";
 
 /* 세금 계산 순수 함수 단위 테스트 — 경계값은 E2E(브라우저)에도 있지만,
@@ -54,6 +54,61 @@ describe("calcImportCost — 직구 소액면세·세액", () => {
 
   it("USD 환율이 없으면 면세 판정을 하지 않는다 (0원 과세 방지)", () => {
     expect(shop({ priceJpy: 99999, usdKrw: 0 }).taxed).toBe(false);
+  });
+});
+
+describe("calcCartImportCost — 장바구니(여러 상품) 합산", () => {
+  const cart = (items, over = {}) =>
+    calcCartImportCost({ items, intlShipKrw: 0, jpyKrw: 10, usdKrw: 1000, ...over });
+
+  it("각각은 한도 이하라도 합산이 넘으면 전체 과세 — 품목별 관세율 안분", () => {
+    // ¥10,000($100) + ¥6,000($60) = $160 > $150
+    const r = cart([
+      { priceJpy: 10000, cat: cat("hobby") },    // 8%
+      { priceJpy: 6000, cat: cat("clothing") },  // 13%
+    ]);
+    expect(r.taxed).toBe(true);
+    expect(r.duty).toBeCloseTo(100_000 * 0.08 + 60_000 * 0.13); // 15,800
+    expect(r.vat).toBeCloseTo((160_000 + 15_800) * 0.1);        // 17,580
+    expect(r.final).toBeCloseTo(193_380);
+  });
+
+  it("부가세 면제(서적)는 해당 품목 안분액에만 적용된다", () => {
+    const r = cart([
+      { priceJpy: 10000, cat: cat("book") },  // 관세 0 + 부가세 면제
+      { priceJpy: 10000, cat: cat("hobby") },
+    ]);
+    expect(r.duty).toBeCloseTo(8_000);
+    expect(r.vat).toBeCloseTo((100_000 + 8_000) * 0.1); // 서적분 제외
+  });
+
+  it("목록통관 배제 품목이 섞이면 합산 $150 이하여도 전체 과세", () => {
+    const r = cart([
+      { priceJpy: 5000, cat: cat("health") },
+      { priceJpy: 5000, cat: cat("hobby") },
+    ]);
+    expect(r.overLimit).toBe(false);
+    expect(r.taxed).toBe(true);
+    expect(r.totalTax).toBeCloseTo(8_000 + (100_000 + 8_000) * 0.1); // 18,800
+  });
+
+  it("국제운임은 상품가 비율로 안분되어 품목별 관세에 반영된다", () => {
+    const r = cart(
+      [{ priceJpy: 12000, cat: cat("hobby") }, { priceJpy: 4000, cat: cat("clothing") }],
+      { intlShipKrw: 16_000 } // 과세가격 176,000 → 안분 132,000 / 44,000
+    );
+    expect(r.duty).toBeCloseTo(132_000 * 0.08 + 44_000 * 0.13);
+  });
+
+  it("단일 상품이면 calcImportCost와 결과가 동일하다 (위임 검증)", () => {
+    for (const c of ["hobby", "bag", "book", "health"]) {
+      const single = calcImportCost({ priceJpy: 200000, intlShipKrw: 10_000, cat: cat(c), jpyKrw: 10, usdKrw: 1000 });
+      const asCart = cart([{ priceJpy: 200000, cat: cat(c) }], { intlShipKrw: 10_000 });
+      expect(asCart.taxed, `${c}.taxed`).toBe(single.taxed);
+      for (const k of ["taxable", "duty", "sct", "edu", "vat", "totalTax", "final"]) {
+        expect(asCart[k], `${c}.${k}`).toBeCloseTo(single[k]);
+      }
+    }
   });
 });
 

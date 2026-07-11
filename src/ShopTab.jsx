@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { T, won, usd, money, rateText, NumField, TextField, SelectField, Row, Stamp, panel } from "./ui.jsx";
 import { CATEGORIES, LUXURY_SCT_BASE } from "./data/categories.js";
-import { calcImportCost } from "./lib/customs.js";
+import { calcCartImportCost } from "./lib/customs.js";
 import { todayStr } from "./lib/orders.js";
 import { buildShareUrl } from "./lib/share.js";
 import useOrders from "./hooks/useOrders.js";
@@ -12,9 +12,11 @@ import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
 
 /* 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다
-   country: 출발국(data/countries.js) · or: 출발국 통화 1단위당 원화 환율 */
-function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
-  const dutyPct = Math.round(shop.cat.duty * 100);
+   country: 출발국(data/countries.js) · or: 출발국 통화 1단위당 원화 환율
+   상품이 여러 개면(장바구니) 관세·개소세·부가세를 품목별 안분 기준으로 풀어 쓴다 */
+function buildBreakdownSteps({ shop, country, or, ur, localShip }) {
+  const multi = shop.items.length > 1;
+  const one = shop.items[0]; // 단일 상품일 때의 품목
   const taxTerms = [
     `관세 ${won(shop.duty)}`,
     shop.sct > 0 && `개소세 ${won(shop.sct)}`,
@@ -25,7 +27,7 @@ function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
   return [
     {
       label: "물품가격 (면세 판정 기준)",
-      expr: `상품 ${money(parseFloat(price) || 0, country)} + ${country.short} 내 배송·수수료 ${money(parseFloat(localShip) || 0, country)} = ${money(shop.goodsJpy, country)}`,
+      expr: `상품${multi ? ` ${shop.items.length}개 합계` : ""} ${money(shop.itemsJpy, country)} + ${country.short} 내 배송·수수료 ${money(parseFloat(localShip) || 0, country)} = ${money(shop.goodsJpy, country)}`,
     },
     {
       label: "원화 환산",
@@ -37,7 +39,7 @@ function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
     },
     {
       label: "면세 판정",
-      expr: shop.cat.excluded
+      expr: shop.hasExcluded
         ? "목록통관 배제 품목 → 금액과 무관하게 과세"
         : shop.overLimit
           ? `${usd(shop.goodsUsd)} > 면세한도 $${country.deMinimisUsd} → 전체 금액 과세`
@@ -50,24 +52,37 @@ function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
             label: "과세가격",
             expr: `물품 ${won(shop.goodsKrw)} + 국제운임 ${won(shop.intl)} = ${won(shop.taxable)}`,
           },
-          {
-            label: `관세 (${dutyPct}%)`,
-            expr: `${won(shop.taxable)} × ${dutyPct}% = ${won(shop.duty)}`,
-          },
+          multi
+            ? {
+                label: "관세 (품목별)",
+                expr: `${shop.items.map((it) => `${won(it.base)} × ${Math.round(it.cat.duty * 100)}%`).join(" + ")} = ${won(shop.duty)}`,
+                note: "과세가격을 상품가 비율로 안분해 품목별 관세율을 적용합니다.",
+              }
+            : {
+                label: `관세 (${Math.round(one.cat.duty * 100)}%)`,
+                expr: `${won(shop.taxable)} × ${Math.round(one.cat.duty * 100)}% = ${won(shop.duty)}`,
+              },
           shop.sct > 0 && {
             label: "개별소비세 (20%)",
-            expr: `(과세가격+관세 ${won(shop.taxable + shop.duty)} − 기준 ${won(LUXURY_SCT_BASE)}) × 20% = ${won(shop.sct)}`,
+            expr: multi
+              ? `가방·시계 품목별 (과세가격+관세 − 기준 ${won(LUXURY_SCT_BASE)}) × 20% = ${won(shop.sct)}`
+              : `(과세가격+관세 ${won(shop.taxable + shop.duty)} − 기준 ${won(LUXURY_SCT_BASE)}) × 20% = ${won(shop.sct)}`,
           },
           shop.edu > 0 && {
             label: "교육세 (개소세의 30%)",
             expr: `${won(shop.sct)} × 30% = ${won(shop.edu)}`,
           },
-          {
-            label: shop.cat.vatExempt ? "부가가치세 (면제)" : "부가가치세 (10%)",
-            expr: shop.cat.vatExempt
-              ? "서적류는 부가가치세가 면제됩니다 → 0원"
-              : `(과세가격 ${won(shop.taxable)} + 관세 ${won(shop.duty)}${shop.sct > 0 ? ` + 개소세 ${won(shop.sct)} + 교육세 ${won(shop.edu)}` : ""}) × 10% = ${won(shop.vat)}`,
-          },
+          multi
+            ? {
+                label: "부가가치세 (10%)",
+                expr: `품목별 (과세가격+관세+개소세) × 10%, 면제 품목(서적류) 제외 = ${won(shop.vat)}`,
+              }
+            : {
+                label: one.cat.vatExempt ? "부가가치세 (면제)" : "부가가치세 (10%)",
+                expr: one.cat.vatExempt
+                  ? "서적류는 부가가치세가 면제됩니다 → 0원"
+                  : `(과세가격 ${won(shop.taxable)} + 관세 ${won(shop.duty)}${shop.sct > 0 ? ` + 개소세 ${won(shop.sct)} + 교육세 ${won(shop.edu)}` : ""}) × 10% = ${won(shop.vat)}`,
+              },
           {
             label: "세금 합계",
             expr: `${taxTerms.join(" + ")} = ${won(shop.totalTax)}`,
@@ -86,10 +101,20 @@ function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
    krwPer: useExchangeRates의 통화→원 실시간 맵 (EUR·CNY 출발국 환율에 우선 사용) */
 export default function ShopTab({ jr, ur, krwPer, shared }) {
   const [countryId, setCountryId] = useState(shared?.o ?? "JP");
-  const [price, setPrice] = useState(shared?.p ?? "15000");
+  // ── 장바구니 — 면세 판정은 주문 전체 기준이라 상품을 여러 줄로 합산한다 ──
+  const newItemId = () => Math.random().toString(36).slice(2, 8);
+  const [items, setItems] = useState(() =>
+    shared?.it?.length
+      ? shared.it.map((x) => ({ id: newItemId(), price: x.p, catId: x.c }))
+      : [{ id: newItemId(), price: shared?.p ?? "15000", catId: shared?.c ?? "hobby" }]
+  );
+  const setItem = (id, patch) =>
+    setItems((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  const addItem = () => setItems((arr) => [...arr, { id: newItemId(), price: "", catId: "hobby" }]);
+  const removeItem = (id) => setItems((arr) => arr.filter((it) => it.id !== id));
+
   const [localShip, setLocalShip] = useState(shared?.l ?? "0");
   const [intlShip, setIntlShip] = useState(shared?.i ?? "15000");
-  const [catId, setCatId] = useState(shared?.c ?? "hobby");
 
   // ── 구매 이력 (합산과세 추적) ──
   const [seller, setSeller] = useState("");
@@ -113,16 +138,18 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
   const { country, isAppCurrency, rate: or } = origin;
 
   const shop = useMemo(
-    () => calcImportCost({
-      priceJpy: parseFloat(price) || 0,
+    () => calcCartImportCost({
+      items: items.map((it) => ({
+        priceJpy: parseFloat(it.price) || 0,
+        cat: CATEGORIES.find((c) => c.id === it.catId),
+      })),
       localShipJpy: parseFloat(localShip) || 0,
       intlShipKrw: parseFloat(intlShip) || 0,
-      cat: CATEGORIES.find((c) => c.id === catId),
       jpyKrw: or,
       usdKrw: ur,
       deMinimisUsd: country.deMinimisUsd,
     }),
-    [price, localShip, intlShip, catId, or, ur, country]
+    [items, localShip, intlShip, or, ur, country]
   );
 
   // 같은 날 + 같은 판매자 기록 → 합산과세 경고
@@ -131,7 +158,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
     useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: or, usdKrw: ur, limitUsd: country.deMinimisUsd, country: countryId });
 
   const canRecord = sellerTrim && shop.goodsJpy > 0;
-  const breakdownSteps = buildBreakdownSteps({ shop, country, or, ur, price, localShip });
+  const breakdownSteps = buildBreakdownSteps({ shop, country, or, ur, localShip });
 
   // ── 관세청 과세환율(주간 고시) — 실제 세액 산정 기준이라 시장 환율과 병기한다 ──
   // 과세환율로 환산한 달러 금액이 면세 판정을 뒤집으면(경계 근처) 경고를 띄운다
@@ -141,7 +168,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
   const customsGoodsUsd =
     customsGoodsKrw != null && customs.rates.USD ? customsGoodsKrw / customs.rates.USD : null;
   const customsMismatch =
-    customsGoodsUsd != null && !shop.cat.excluded &&
+    customsGoodsUsd != null && !shop.hasExcluded &&
     (customsGoodsUsd > country.deMinimisUsd) !== shop.overLimit;
 
   // 결과 링크 공유 — 입력값+환율 스냅샷을 URL에 담아 복사
@@ -150,7 +177,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
   useEffect(() => () => clearTimeout(copyTimer.current), []);
   const copyShareLink = async () => {
     const url = buildShareUrl({
-      price, localShip, intlShip, catId, countryId, jr, ur,
+      items, localShip, intlShip, countryId, jr, ur,
       originRate: isAppCurrency ? null : or,
     });
     try {
@@ -168,25 +195,54 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
         <OriginSelectField value={countryId} onChange={changeCountry} origin={origin} />
-        <NumField label="상품 가격" suffix={country.symbol} value={price} onChange={setPrice} />
+        {items.map((it, i) => {
+          const cat = CATEGORIES.find((c) => c.id === it.catId);
+          return (
+            <div key={it.id} style={i > 0 ? { borderTop: `1px dashed ${T.line}`, paddingTop: 10 } : undefined}>
+              {items.length > 1 && (
+                <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ flex: 1, fontSize: 11.5, fontWeight: 700, color: T.muted }}>상품 {i + 1}</span>
+                  <button aria-label={`상품 ${i + 1} 삭제`} onClick={() => removeItem(it.id)} style={{
+                    border: "none", background: "transparent", color: T.red, cursor: "pointer",
+                    fontSize: 11.5, fontWeight: 700, padding: 0,
+                  }}>
+                    × 삭제
+                  </button>
+                </div>
+              )}
+              <NumField
+                label={i === 0 ? "상품 가격" : `상품 ${i + 1} 가격`}
+                suffix={country.symbol} value={it.price}
+                onChange={(v) => setItem(it.id, { price: v })}
+              />
+              <SelectField
+                label={i === 0 ? "품목" : `상품 ${i + 1} 품목`}
+                value={it.catId}
+                onChange={(v) => setItem(it.id, { catId: v })}
+                note={cat.note && (
+                  <span style={{ display: "block", fontSize: 12, color: cat.excluded ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
+                    {cat.note}
+                  </span>
+                )}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label} — 관세 {Math.round(c.duty * 100)}%
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+          );
+        })}
+        <button onClick={addItem} style={{
+          border: `1px dashed ${T.indigo}`, background: "transparent", color: T.indigo,
+          borderRadius: 10, padding: "8px 14px", fontSize: 12.5, fontWeight: 700,
+          cursor: "pointer", width: "100%", marginBottom: 14,
+        }}>
+          ＋ 상품 추가 — 같은 주문의 상품은 합산해서 면세 판정됩니다
+        </button>
         <NumField label={`${country.short} 내 배송비·수수료`} suffix={country.symbol} value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />
-        <SelectField
-          label="품목"
-          value={catId}
-          onChange={setCatId}
-          note={shop.cat.note && (
-            <span style={{ display: "block", fontSize: 12, color: shop.cat.excluded ? T.red : T.muted, marginTop: 6, lineHeight: 1.5 }}>
-              {shop.cat.note}
-            </span>
-          )}
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label} — 관세 {Math.round(c.duty * 100)}%
-            </option>
-          ))}
-        </SelectField>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <TextField label="판매자 (합산과세 추적)" value={seller} onChange={setSeller} placeholder="예: 아마존재팬, ○○스토어" />
           <TextField label="상품명 (선택)" value={itemName} onChange={setItemName} placeholder="기록용 메모" />
@@ -242,10 +298,16 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
           {shop.taxed && (
             <>
               <Row label="과세가격 (물품 + 국제운임)" value={won(shop.taxable)} />
-              <Row label={`관세 (${Math.round(shop.cat.duty * 100)}%)`} value={won(shop.duty)} />
+              <Row
+                label={shop.items.length > 1 ? "관세 (품목별 합산)" : `관세 (${Math.round(shop.items[0].cat.duty * 100)}%)`}
+                value={won(shop.duty)}
+              />
               {shop.sct > 0 && <Row label="개별소비세 (200만원 초과분 20%)" value={won(shop.sct)} />}
               {shop.edu > 0 && <Row label="교육세 (개소세의 30%)" value={won(shop.edu)} />}
-              <Row label={shop.cat.vatExempt ? "부가가치세 (면제)" : "부가가치세 (10%)"} value={won(shop.vat)} />
+              <Row
+                label={shop.items.length === 1 && shop.items[0].cat.vatExempt ? "부가가치세 (면제)" : "부가가치세 (10%)"}
+                value={won(shop.vat)}
+              />
               <Row label="세금 합계" value={won(shop.totalTax)} strong red top />
             </>
           )}

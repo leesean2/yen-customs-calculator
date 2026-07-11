@@ -130,7 +130,7 @@ function PushBlock({ config }) {
 }
 
 export default function AlertTab({ rateAlert }) {
-  const { config, update, triggered, live, liveText, unitText } = rateAlert;
+  const { config, update, triggered, target, live, liveText, unitText } = rateAlert;
 
   // ── 브라우저 알림 권한 ──
   const [notifPerm, setNotifPerm] = useState(
@@ -246,8 +246,8 @@ export default function AlertTab({ rateAlert }) {
         <PushBlock config={config} />
       </section>
 
-      {/* ── 2. 환율 추이 — 목표가를 정할 때 현재가 싼 편인지 참고 ── */}
-      <RateTrendChart currency={config.cur || "JPY"} />
+      {/* ── 2. 환율 추이 — 목표가를 정할 때 현재가 싼 편인지 참고 (목표선 병기) ── */}
+      <RateTrendChart currency={config.cur || "JPY"} target={target > 0 ? target : 0} />
 
       {/* ── 3. 환율 이상 감지 ── */}
       <section style={sectionStyle}>

@@ -17,7 +17,8 @@ const RANGES = [{ days: 30, label: "30일" }, { days: 90, label: "90일" }];
 const fmt = (n) => n.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
 const md = (iso) => `${+iso.slice(5, 7)}/${+iso.slice(8)}`; // "2026-07-08" → "7/8"
 
-export default function RateTrendChart({ currency }) {
+/** target: 목표 환율(표기 단위 기준 원) — 표시 범위 안이면 기준선으로 그린다 */
+export default function RateTrendChart({ currency, target = 0 }) {
   const { rateUnit: unit, rateUnitLabel: unitLabel } =
     ORIGIN_COUNTRIES.find((c) => c.currency === currency) ?? ORIGIN_COUNTRIES[0];
   const unitText = `${unit === 1 ? "1" : unit}${unitLabel}`;
@@ -42,7 +43,7 @@ export default function RateTrendChart({ currency }) {
   const done = state.status === "done" && pts.length >= 2;
 
   // 스케일 — y는 최소·최대에 5% 여백을 줘 선이 프레임에 붙지 않게
-  let path = "", area = "", coords = [], minI = 0, maxI = 0;
+  let path = "", area = "", coords = [], minI = 0, maxI = 0, targetY = null;
   if (done) {
     const vs = pts.map((p) => p.v);
     const lo = Math.min(...vs), hi = Math.max(...vs);
@@ -54,6 +55,8 @@ export default function RateTrendChart({ currency }) {
     area = `${path} L${coords[coords.length - 1].cx.toFixed(1)},${H - PAD.bottom} L${coords[0].cx.toFixed(1)},${H - PAD.bottom} Z`;
     minI = vs.indexOf(lo);
     maxI = vs.indexOf(hi);
+    // 목표선 — 표시 범위 안일 때만 (한참 벗어난 목표는 축을 짓눌러 추이가 안 보인다)
+    if (target > 0 && target >= lo - padV && target <= hi + padV) targetY = y(target);
   }
 
   // 호버 — 포인터 x 위치에서 가장 가까운 포인트 (터치 포함)
@@ -115,6 +118,17 @@ export default function RateTrendChart({ currency }) {
                   y1={PAD.top + (H - PAD.top - PAD.bottom) * f} y2={PAD.top + (H - PAD.top - PAD.bottom) * f}
                   stroke="var(--c-line)" strokeWidth="1" />
               ))}
+              {/* 목표 환율 기준선 — 시리즈보다 뒤에, 그리드보다 진하게 */}
+              {targetY != null && (
+                <>
+                  <line x1={PAD.left} x2={W - PAD.right} y1={targetY} y2={targetY}
+                    stroke="var(--c-muted)" strokeWidth="1.2" strokeDasharray="5 4" />
+                  <text x={W - PAD.right} y={targetY - 5} textAnchor="end"
+                    style={{ fontSize: 10.5, fontWeight: 700, fill: "var(--c-muted)" }}>
+                    목표 {fmt(target)}
+                  </text>
+                </>
+              )}
               <path d={area} fill="var(--c-indigo-soft)" />
               <path d={path} fill="none" stroke="var(--c-indigo)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
               {/* 선택적 직접 라벨: 최고·최저만 (둘 다 마커 + 값) */}

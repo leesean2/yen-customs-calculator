@@ -34,6 +34,12 @@ test("R1. 엔 추이 — 최저·최고·현재가 100엔 기준으로 표시된
   // hover()는 화면 밖 요소를 스크롤해 온 뒤 중앙에 포인터를 올린다
   await page.getByRole("img", { name: /환율 추이/ }).hover();
   await expect(page.getByText("7/7 · 980원")).toBeVisible();
+
+  // 목표 환율을 입력하면(표시 범위 안) 기준선 라벨이 차트에 나타난다
+  await page.getByLabel("목표 환율").fill("950");
+  await expect(page.getByText("목표 950", { exact: true })).toBeVisible();
+  await page.getByLabel("목표 환율").fill("2000"); // 범위 밖 — 축을 짓누르지 않게 숨김
+  await expect(page.getByText("목표 2,000", { exact: true })).toBeHidden();
 });
 
 test("R2. 알림 통화를 바꾸면 그 통화의 시계열로 갱신된다", async ({ page }) => {

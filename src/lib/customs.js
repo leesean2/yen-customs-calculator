@@ -6,42 +6,68 @@ import {
 } from "../data/categories.js";
 
 /**
- * 직구 관부가세 계산 (직구 탭·가격비교 탭 공용)
- * - 물품가격(상품가 + 현지 배송비)이 소액면세 한도(미화) 이하면 면세, 초과 시 전체 과세
- * - 과세가격 = 물품가격 + 국제운임
- *
- * 통화 일반화: priceJpy/jpyKrw는 '출발국 상품 통화'와 그 원화 환율이다(엔이 기본).
- * deMinimisUsd는 출발국별 소액면세 한도 — 기본값은 일본(150), 미국이면 200 등
- * (출발국별 값은 data/countries.js). usdKrw는 한도 환산용 USD 환율로 항상 필요.
+ * 여러 상품 장바구니 직구 계산 — 면세 판정은 '주문 전체 물품가격' 기준이라
+ * 품목 각각은 한도 이하라도 합치면 초과할 수 있다(직구에서 가장 흔한 실수).
+ * - 과세 시 현지 배송비·국제운임을 상품가 비율로 안분한 품목별 과세가격(base)에
+ *   품목별 관세율을 적용하고, 개소세(가방·시계)·부가세 면제(서적)도 품목별로 따진다
+ * - 목록통관 배제 품목이 하나라도 있으면 주문 전체가 일반 수입신고 대상 → 전체 과세
+ * items: [{ priceJpy, cat }] — 통화 일반화는 calcImportCost와 동일(엔이 기본)
  */
-export function calcImportCost({
-  priceJpy, localShipJpy = 0, intlShipKrw = 0, cat, jpyKrw, usdKrw,
+export function calcCartImportCost({
+  items, localShipJpy = 0, intlShipKrw = 0, jpyKrw, usdKrw,
   deMinimisUsd = DUTY_FREE_LIMIT_USD,
 }) {
-  const goodsJpy = (priceJpy || 0) + (localShipJpy || 0);
+  const itemsJpy = items.reduce((s, it) => s + (it.priceJpy || 0), 0);
+  const goodsJpy = itemsJpy + (localShipJpy || 0);
   const goodsKrw = goodsJpy * (jpyKrw || 0);
   const goodsUsd = usdKrw ? goodsKrw / usdKrw : NaN;
   const intl = intlShipKrw || 0;
 
   const overLimit = usdKrw ? goodsUsd > deMinimisUsd : false;
-  const taxed = overLimit || !!cat.excluded;
+  const hasExcluded = items.some((it) => it.cat.excluded);
+  const taxed = overLimit || hasExcluded;
 
   let duty = 0, sct = 0, edu = 0, vat = 0, taxable = 0;
+  // 면세여도 품목 구성은 반환한다 — 화면이 상품 수·품목별 표시에 쓴다
+  const perItem = items.map((it) => ({
+    cat: it.cat, priceJpy: it.priceJpy || 0, base: 0, duty: 0, sct: 0, edu: 0, vat: 0,
+  }));
   if (taxed) {
     taxable = goodsKrw + intl;
-    duty = taxable * cat.duty;
-    if (cat.luxury && taxable + duty > LUXURY_SCT_BASE) {
-      sct = (taxable + duty - LUXURY_SCT_BASE) * 0.2;
-      edu = sct * 0.3;
+    for (const pi of perItem) {
+      // 상품가가 전부 0(현지 배송비만 있는 극단)일 때는 균등 안분해 세액이 사라지지 않게
+      const share = itemsJpy > 0 ? pi.priceJpy / itemsJpy : 1 / perItem.length;
+      pi.base = taxable * share;
+      pi.duty = pi.base * pi.cat.duty;
+      if (pi.cat.luxury && pi.base + pi.duty > LUXURY_SCT_BASE) {
+        pi.sct = (pi.base + pi.duty - LUXURY_SCT_BASE) * 0.2;
+        pi.edu = pi.sct * 0.3;
+      }
+      pi.vat = pi.cat.vatExempt ? 0 : (pi.base + pi.duty + pi.sct + pi.edu) * 0.1;
+      duty += pi.duty; sct += pi.sct; edu += pi.edu; vat += pi.vat;
     }
-    vat = cat.vatExempt ? 0 : (taxable + duty + sct + edu) * 0.1;
   }
   const totalTax = duty + sct + edu + vat;
   return {
-    cat, goodsJpy, goodsKrw, goodsUsd, intl, overLimit, taxed,
+    items: perItem, itemsJpy, hasExcluded,
+    goodsJpy, goodsKrw, goodsUsd, intl, overLimit, taxed,
     taxable, duty, sct, edu, vat, totalTax,
     final: goodsKrw + intl + totalTax,
   };
+}
+
+/**
+ * 단일 상품 직구 계산 (가격비교·직구여행 비교 탭 공용) — 장바구니 계산의
+ * 1개짜리 특수형. 수식이 한 곳(calcCartImportCost)에만 존재하도록 위임한다.
+ */
+export function calcImportCost({
+  priceJpy, localShipJpy = 0, intlShipKrw = 0, cat, jpyKrw, usdKrw,
+  deMinimisUsd = DUTY_FREE_LIMIT_USD,
+}) {
+  const r = calcCartImportCost({
+    items: [{ priceJpy, cat }], localShipJpy, intlShipKrw, jpyKrw, usdKrw, deMinimisUsd,
+  });
+  return { ...r, cat };
 }
 
 /**
