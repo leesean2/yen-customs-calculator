@@ -8,6 +8,7 @@ import useOrders from "./hooks/useOrders.js";
 import useOriginCountry from "./hooks/useOriginCountry.js";
 import useCustomsRate from "./hooks/useCustomsRate.js";
 import OriginSelectField from "./OriginSelect.jsx";
+import HsRateField from "./HsRate.jsx";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
 
@@ -55,12 +56,12 @@ function buildBreakdownSteps({ shop, country, or, ur, localShip }) {
           multi
             ? {
                 label: "관세 (품목별)",
-                expr: `${shop.items.map((it) => `${won(it.base)} × ${Math.round(it.cat.duty * 100)}%`).join(" + ")} = ${won(shop.duty)}`,
+                expr: `${shop.items.map((it) => `${won(it.base)} × ${Math.round(it.dutyRate * 100)}%`).join(" + ")} = ${won(shop.duty)}`,
                 note: "과세가격을 상품가 비율로 안분해 품목별 관세율을 적용합니다.",
               }
             : {
-                label: `관세 (${Math.round(one.cat.duty * 100)}%)`,
-                expr: `${won(shop.taxable)} × ${Math.round(one.cat.duty * 100)}% = ${won(shop.duty)}`,
+                label: `관세 (${Math.round(one.dutyRate * 100)}%)`,
+                expr: `${won(shop.taxable)} × ${Math.round(one.dutyRate * 100)}% = ${won(shop.duty)}`,
               },
           shop.sct > 0 && {
             label: "개별소비세 (20%)",
@@ -102,15 +103,19 @@ function buildBreakdownSteps({ shop, country, or, ur, localShip }) {
 export default function ShopTab({ jr, ur, krwPer, shared }) {
   const [countryId, setCountryId] = useState(shared?.o ?? "JP");
   // ── 장바구니 — 면세 판정은 주문 전체 기준이라 상품을 여러 줄로 합산한다 ──
+  // hsRate: HS부호 조회로 적용한 정확 관세율 { hs, rate(%) } | null
   const newItemId = () => Math.random().toString(36).slice(2, 8);
   const [items, setItems] = useState(() =>
     shared?.it?.length
-      ? shared.it.map((x) => ({ id: newItemId(), price: x.p, catId: x.c }))
-      : [{ id: newItemId(), price: shared?.p ?? "15000", catId: shared?.c ?? "hobby" }]
+      ? shared.it.map((x) => ({
+          id: newItemId(), price: x.p, catId: x.c,
+          hsRate: x.hs ? { hs: x.hs, rate: x.d } : null,
+        }))
+      : [{ id: newItemId(), price: shared?.p ?? "15000", catId: shared?.c ?? "hobby", hsRate: null }]
   );
   const setItem = (id, patch) =>
     setItems((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  const addItem = () => setItems((arr) => [...arr, { id: newItemId(), price: "", catId: "hobby" }]);
+  const addItem = () => setItems((arr) => [...arr, { id: newItemId(), price: "", catId: "hobby", hsRate: null }]);
   const removeItem = (id) => setItems((arr) => arr.filter((it) => it.id !== id));
 
   const [localShip, setLocalShip] = useState(shared?.l ?? "0");
@@ -142,6 +147,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
       items: items.map((it) => ({
         priceJpy: parseFloat(it.price) || 0,
         cat: CATEGORIES.find((c) => c.id === it.catId),
+        dutyRate: it.hsRate ? it.hsRate.rate / 100 : undefined,
       })),
       localShipJpy: parseFloat(localShip) || 0,
       intlShipKrw: parseFloat(intlShip) || 0,
@@ -231,6 +237,11 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
                   </option>
                 ))}
               </SelectField>
+              <HsRateField
+                applied={it.hsRate}
+                onApply={(hsRate) => setItem(it.id, { hsRate })}
+                onClear={() => setItem(it.id, { hsRate: null })}
+              />
             </div>
           );
         })}
@@ -299,7 +310,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
             <>
               <Row label="과세가격 (물품 + 국제운임)" value={won(shop.taxable)} />
               <Row
-                label={shop.items.length > 1 ? "관세 (품목별 합산)" : `관세 (${Math.round(shop.items[0].cat.duty * 100)}%)`}
+                label={shop.items.length > 1 ? "관세 (품목별 합산)" : `관세 (${Math.round(shop.items[0].dutyRate * 100)}%)`}
                 value={won(shop.duty)}
               />
               {shop.sct > 0 && <Row label="개별소비세 (200만원 초과분 20%)" value={won(shop.sct)} />}

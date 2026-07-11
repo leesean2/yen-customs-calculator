@@ -11,7 +11,8 @@ import {
  * - 과세 시 현지 배송비·국제운임을 상품가 비율로 안분한 품목별 과세가격(base)에
  *   품목별 관세율을 적용하고, 개소세(가방·시계)·부가세 면제(서적)도 품목별로 따진다
  * - 목록통관 배제 품목이 하나라도 있으면 주문 전체가 일반 수입신고 대상 → 전체 과세
- * items: [{ priceJpy, cat }] — 통화 일반화는 calcImportCost와 동일(엔이 기본)
+ * items: [{ priceJpy, cat, dutyRate? }] — 통화 일반화는 calcImportCost와 동일(엔이 기본).
+ *   dutyRate(소수)는 HS부호 조회로 얻은 정확 관세율 — 있으면 cat.duty 대신 쓴다.
  */
 export function calcCartImportCost({
   items, localShipJpy = 0, intlShipKrw = 0, jpyKrw, usdKrw,
@@ -30,7 +31,9 @@ export function calcCartImportCost({
   let duty = 0, sct = 0, edu = 0, vat = 0, taxable = 0;
   // 면세여도 품목 구성은 반환한다 — 화면이 상품 수·품목별 표시에 쓴다
   const perItem = items.map((it) => ({
-    cat: it.cat, priceJpy: it.priceJpy || 0, base: 0, duty: 0, sct: 0, edu: 0, vat: 0,
+    cat: it.cat, priceJpy: it.priceJpy || 0,
+    dutyRate: it.dutyRate ?? it.cat.duty, // HS부호 정확 세율이 있으면 우선
+    base: 0, duty: 0, sct: 0, edu: 0, vat: 0,
   }));
   if (taxed) {
     taxable = goodsKrw + intl;
@@ -38,7 +41,7 @@ export function calcCartImportCost({
       // 상품가가 전부 0(현지 배송비만 있는 극단)일 때는 균등 안분해 세액이 사라지지 않게
       const share = itemsJpy > 0 ? pi.priceJpy / itemsJpy : 1 / perItem.length;
       pi.base = taxable * share;
-      pi.duty = pi.base * pi.cat.duty;
+      pi.duty = pi.base * pi.dutyRate;
       if (pi.cat.luxury && pi.base + pi.duty > LUXURY_SCT_BASE) {
         pi.sct = (pi.base + pi.duty - LUXURY_SCT_BASE) * 0.2;
         pi.edu = pi.sct * 0.3;

@@ -100,6 +100,23 @@ describe("calcCartImportCost — 장바구니(여러 상품) 합산", () => {
     expect(r.duty).toBeCloseTo(132_000 * 0.08 + 44_000 * 0.13);
   });
 
+  it("HS부호 정확 세율(dutyRate)이 있으면 품목 대푯값 대신 적용된다 — 0%도 유효", () => {
+    const base = cart([{ priceJpy: 20000, cat: cat("hobby") }]); // 대푯값 8%
+    const hs = cart([{ priceJpy: 20000, cat: cat("hobby"), dutyRate: 0.13 }]);
+    expect(base.duty).toBeCloseTo(200_000 * 0.08);
+    expect(hs.duty).toBeCloseTo(200_000 * 0.13);
+    expect(hs.items[0].dutyRate).toBe(0.13);
+    expect(cart([{ priceJpy: 20000, cat: cat("hobby"), dutyRate: 0 }]).duty).toBe(0);
+  });
+
+  it("dutyRate는 해당 상품에만 적용되고 다른 상품은 대푯값을 유지한다", () => {
+    const r = cart([
+      { priceJpy: 10000, cat: cat("hobby"), dutyRate: 0.05 },
+      { priceJpy: 10000, cat: cat("clothing") }, // 13%
+    ]);
+    expect(r.duty).toBeCloseTo(100_000 * 0.05 + 100_000 * 0.13);
+  });
+
   it("단일 상품이면 calcImportCost와 결과가 동일하다 (위임 검증)", () => {
     for (const c of ["hobby", "bag", "book", "health"]) {
       const single = calcImportCost({ priceJpy: 200000, intlShipKrw: 10_000, cat: cat(c), jpyKrw: 10, usdKrw: 1000 });
