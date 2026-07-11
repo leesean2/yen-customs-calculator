@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { T, won, usd, money, rateText, NumField, TextField, SelectField, Row, Stamp, panel } from "./ui.jsx";
 import { CATEGORIES, LUXURY_SCT_BASE } from "./data/categories.js";
-import { ORIGIN_COUNTRIES, getCountry } from "./data/countries.js";
 import { calcImportCost } from "./lib/customs.js";
 import { todayStr } from "./lib/orders.js";
 import { buildShareUrl } from "./lib/share.js";
 import useOrders from "./hooks/useOrders.js";
-import useOriginRate from "./hooks/useOriginRate.js";
+import useOriginCountry from "./hooks/useOriginCountry.js";
 import useCustomsRate from "./hooks/useCustomsRate.js";
+import OriginSelectField from "./OriginSelect.jsx";
 import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
 
@@ -82,8 +82,9 @@ function buildBreakdownSteps({ shop, country, or, ur, price, localShip }) {
 }
 
 /* 직구 관부가세 계산 탭 (+ 구매 이력 · 합산과세 추적)
-   shared: 공유 링크(URL 쿼리)로 들어온 입력값 스냅샷 — 첫 렌더에서만 쓴다 */
-export default function ShopTab({ jr, ur, shared }) {
+   shared: 공유 링크(URL 쿼리)로 들어온 입력값 스냅샷 — 첫 렌더에서만 쓴다
+   krwPer: useExchangeRates의 통화→원 실시간 맵 (EUR·CNY 출발국 환율에 우선 사용) */
+export default function ShopTab({ jr, ur, krwPer, shared }) {
   const [countryId, setCountryId] = useState(shared?.o ?? "JP");
   const [price, setPrice] = useState(shared?.p ?? "15000");
   const [localShip, setLocalShip] = useState(shared?.l ?? "0");
@@ -94,11 +95,9 @@ export default function ShopTab({ jr, ur, shared }) {
   const [seller, setSeller] = useState("");
   const [itemName, setItemName] = useState("");
 
-  // ── 출발국 환율(or): JPY·USD는 App의 실시간 환율(jr·ur), 그 외는 별도 조회 ──
+  // ── 출발국 환율(or) — 해석 우선순위는 useOriginCountry 참고 ──
   // 공유 링크의 r(원/1단위)은 발신 시점 스냅샷 — 사용자가 출발국을 바꾸는 순간 폐기해,
   // 되돌아와도 실시간 조회로 넘어간다. r이 0·음수·비수치면 스냅샷 없이 실시간 조회.
-  const country = getCountry(countryId);
-  const isAppCurrency = country.currency === "JPY" || country.currency === "USD";
   const [sharedOrigin, setSharedOrigin] = useState(() => {
     const rate = parseFloat(shared?.r);
     return shared?.o && rate > 0 ? { id: shared.o, rate } : null;
@@ -107,13 +106,11 @@ export default function ShopTab({ jr, ur, shared }) {
     if (sharedOrigin && id !== sharedOrigin.id) setSharedOrigin(null);
     setCountryId(id);
   };
-  const sharedRateApplies = !isAppCurrency && sharedOrigin?.id === countryId;
-  const originLive = useOriginRate(isAppCurrency || sharedRateApplies ? null : country.currency);
-  const or =
-    country.currency === "JPY" ? jr
-    : country.currency === "USD" ? ur
-    : sharedRateApplies ? sharedOrigin.rate
-    : originLive.rate;
+  const origin = useOriginCountry({
+    countryId, jr, ur, krwPer,
+    override: sharedOrigin?.id === countryId ? sharedOrigin.rate : null,
+  });
+  const { country, isAppCurrency, rate: or } = origin;
 
   const shop = useMemo(
     () => calcImportCost({
@@ -147,22 +144,6 @@ export default function ShopTab({ jr, ur, shared }) {
     customsGoodsUsd != null && !shop.cat.excluded &&
     (customsGoodsUsd > country.deMinimisUsd) !== shop.overLimit;
 
-  // 출발국 선택 아래 환율 상태 안내 — EUR·CNY는 별도 조회라 상태를 여기서 보여준다
-  const originRateHint = sharedRateApplies
-    ? `공유된 환율 ${rateText(or, country)} 사용 중`
-    : isAppCurrency
-      ? or > 0 ? `적용 환율 ${rateText(or, country)} — 상단 환율 설정을 따릅니다` : null
-      : {
-          loading: "환율 불러오는 중…",
-          live: `적용 환율 ${rateText(or, country)} · ECB ${originLive.date ?? ""} 고시`,
-          cached: `저장된 환율 ${rateText(or, country)} · ECB ${originLive.date ?? ""} 고시 — 최신 조회 실패`,
-          error: "환율을 불러오지 못했습니다 — 계산이 0원으로 표시됩니다",
-        }[originLive.status] ?? null;
-  const originRateFailed = !isAppCurrency && !sharedRateApplies && originLive.status === "error";
-  // 실패·캐시 상태에서는 재시도 버튼 노출
-  const originRateStale = originRateFailed ||
-    (!isAppCurrency && !sharedRateApplies && originLive.status === "cached");
-
   // 결과 링크 공유 — 입력값+환율 스냅샷을 URL에 담아 복사
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
@@ -186,30 +167,7 @@ export default function ShopTab({ jr, ur, shared }) {
   return (
     <>
       <section style={{ ...panel(), padding: "18px 18px 6px", marginBottom: 16 }}>
-        <SelectField
-          label="출발국"
-          value={countryId}
-          onChange={changeCountry}
-          note={originRateHint && (
-            <span style={{ display: "block", fontSize: 11.5, color: originRateFailed ? T.red : T.muted, marginTop: 4 }}>
-              {originRateHint}
-              {originRateStale && (
-                <button onClick={originLive.retry} style={{
-                  border: "none", background: "transparent", color: T.indigo, cursor: "pointer",
-                  fontSize: 11.5, fontWeight: 700, padding: 0, marginLeft: 6, textDecoration: "underline",
-                }}>
-                  다시 시도
-                </button>
-              )}
-            </span>
-          )}
-        >
-          {ORIGIN_COUNTRIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.flag} {c.label} — 면세한도 ${c.deMinimisUsd}
-            </option>
-          ))}
-        </SelectField>
+        <OriginSelectField value={countryId} onChange={changeCountry} origin={origin} />
         <NumField label="상품 가격" suffix={country.symbol} value={price} onChange={setPrice} />
         <NumField label={`${country.short} 내 배송비·수수료`} suffix={country.symbol} value={localShip} onChange={setLocalShip} hint="면세 판정 기준인 '물품가격'에 포함됩니다" />
         <NumField label="국제 배송비 (배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip} hint="면세 판정에는 빠지지만, 과세 시 과세가격에 포함됩니다" />

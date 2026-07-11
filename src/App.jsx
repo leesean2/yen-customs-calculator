@@ -119,9 +119,8 @@ export default function App() {
   const jr = (parseFloat(jpyRate) || 0) / 100;
   const ur = parseFloat(usdRate) || 0;
 
-  // 목표 환율 알림 — 수동 입력값이 아닌 실시간 API 환율 기준으로 판정
-  const liveJpy = rates?.jpyKrw ?? 0;
-  const rateAlert = useRateAlert(liveJpy, refresh);
+  // 목표 환율 알림 — 수동 입력값이 아닌 실시간 API 환율(krwPer) 기준으로 판정
+  const rateAlert = useRateAlert(rates?.krwPer, refresh);
 
   // 세율·한도 데이터 신선도 — 기준일에서 일정 기간이 지나면 확인 배너
   const rateDataAgeDays = Math.floor(
@@ -190,7 +189,7 @@ export default function App() {
             background: T.greenSoft, border: `1.5px solid ${T.green}`, borderRadius: 12,
             padding: "10px 14px", marginBottom: 14, fontSize: 13.5, color: T.green, fontWeight: 700,
           }}>
-            <span>🔔 목표 환율 도달 — 현재 100엔 = {(liveJpy * 100).toFixed(2)}원 (목표 {rateAlert.config.target}원 {rateAlert.config.dir === "below" ? "이하" : "이상"})</span>
+            <span>🔔 목표 환율 도달 — 현재 {rateAlert.unitText} = {rateAlert.liveText}원 (목표 {rateAlert.config.target}원 {rateAlert.config.dir === "below" ? "이하" : "이상"})</span>
             <span style={{ flex: 1 }} />
             <button onClick={() => rateAlert.update({ enabled: false })} style={badgeBtnStyle}>
               알림 끄기
@@ -211,11 +210,11 @@ export default function App() {
           ))}
         </nav>
 
-        {tabPanel("shop", <ShopTab jr={jr} ur={ur} shared={shared} />)}
+        {tabPanel("shop", <ShopTab jr={jr} ur={ur} krwPer={rates?.krwPer} shared={shared} />)}
         {tabPanel("travel", <TravelTab jr={jr} ur={ur} />)}
-        {tabPanel("route", <RouteCompareTab jr={jr} ur={ur} />)}
+        {tabPanel("route", <RouteCompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("compare", <CompareTab jpyKrw={jr} usdKrw={ur} />)}
-        {tabPanel("alert", <AlertTab liveRate={liveJpy} rateAlert={rateAlert} />)}
+        {tabPanel("alert", <AlertTab rateAlert={rateAlert} />)}
 
         <footer style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${T.line}`, fontSize: 11, color: T.muted, textAlign: "center" }}>
           본 계산기는 참고용이며 법적 효력이 없습니다 · 세율 기준일: {RATES_LAST_VERIFIED}

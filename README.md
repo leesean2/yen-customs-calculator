@@ -21,7 +21,7 @@ src/
   App.jsx               환율 상태·알림/신선도 배너·탭 전환·공유 링크 복원 (탭은 한 번 방문하면 숨김 유지로 상태 보존)
   ShopTab.jsx           직구 관부가세 계산 + 결과 링크 공유
   TravelTab.jsx         여행자 휴대품 (품목별 간이세율 + 술·담배·향수 별도 면세한도)
-  RouteCompareTab.jsx   직구 vs 여행 반입 비교 (면세 $150 vs $800)
+  RouteCompareTab.jsx   직구 vs 여행 반입 비교 (출발국 선택 · 면세 $150/$200 vs $800)
   CompareTab.jsx        일본 vs 국내 가격 비교
   AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
   OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약
@@ -54,22 +54,25 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
 실시간 소스는 비공식이라 형식이 바뀌면 자동으로 일간 소스로 넘어간다.
 (네이버 금융 계산기 엔드포인트는 2026-07 현재 500을 반환해 제외)
 
-각 소스는 통화→원 맵(`krwPer[currency]`)을 반환한다 — 일간 소스(er-api/frankfurter)는
-USD 기준으로 KRW·JPY·EUR·CNY를 함께 받아 두어, 출발국이 늘어도 조회 키만 바꾸면 된다
-(지금 UI는 JPY·USD만 읽는다). 폴백이 몇 단계까지 떨어졌는지는 진단 로그로 남는다(아래).
+각 소스는 통화→원 맵(`krwPer[currency]`)을 반환한다 — 실시간 소스(`api/_lib/rates.js`)와
+일간 소스 모두 JPY·USD에 더해 EUR·CNY를 포함하며, 직구·비교 탭(`useOriginCountry`)과
+다통화 목표 알림이 이 맵을 읽는다. 폴백이 몇 단계까지 떨어졌는지는 진단 로그로 남는다(아래).
 
 ## 다국가(출발국) 직구
 
-직구 탭은 출발국을 선택할 수 있다(일본·미국·유럽·중국). 국가별 상수는 코드가 아니라
-`data/countries.js` 레지스트리에 있어, 나라를 늘릴 때 데이터만 추가하면 된다:
+직구 탭과 직구·여행 비교 탭은 출발국을 선택할 수 있다(일본·미국·유럽·중국). 국가별 상수는
+코드가 아니라 `data/countries.js` 레지스트리에 있어, 나라를 늘릴 때 데이터만 추가하면 된다:
 
 - **소액면세 한도** — `deMinimisUsd`(미화). 미국발은 한미 FTA로 **$200**, 그 외 **$150**.
   `calcImportCost({ ..., deMinimisUsd })`가 이 값을 받아 면세 판정한다.
   `categories.js`의 `DUTY_FREE_LIMIT_USD`도 이 레지스트리에서 파생된다.
-- **통화·환율** — JPY·USD는 상단 환율 설정(실시간·수동 입력)을 그대로 쓰고,
-  EUR·CNY는 `hooks/useOriginRate.js`가 frankfurter(ECB 일간, `lib/fx.js`)에서 별도 조회한다.
-  조회 실패 시 마지막 성공값(localStorage)으로 폴백하고 고시일과 재시도 버튼을 보여준다.
+- **통화·환율** — 해석은 `hooks/useOriginCountry.js` 한 곳에서: 공유 스냅샷 → JPY·USD는
+  상단 환율 설정(수동 입력 반영) → EUR·CNY는 실시간 맵(`krwPer`, 장중 소스 포함) →
+  frankfurter(ECB 일간, `hooks/useOriginRate.js` + `lib/fx.js`) 순. 조회 실패 시 마지막
+  성공값(localStorage)으로 폴백하고 고시일과 재시도 버튼을 보여준다(`OriginSelect.jsx`).
   면세 판정용 USD 환율은 상품 통화와 무관하게 항상 필요해 `LIMIT_CURRENCY`로 분리.
+- **목표 환율 알림** — 알림 탭에서 통화(JPY·USD·EUR·CNY)를 골라 목표를 걸 수 있다.
+  백그라운드 푸시(서버 크론)는 아직 엔화 목표만 확인한다.
 - **표기** — `symbol`/`locale`(금액), `rateUnit`/`rateUnitLabel`(환율 — 엔은 국내 관행상
   100엔 기준 "원/100엔", 그 외 1단위), `short`(문장 속 국가명 "일본 내 배송비").
 

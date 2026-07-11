@@ -1,19 +1,16 @@
 import { useMemo, useState } from "react";
-import { T, won, usd, yen, NumField, SelectField, Row, panel } from "./ui.jsx";
-import {
-  CATEGORIES,
-  TRAVEL_RATES,
-  DUTY_FREE_LIMIT_USD,
-  TRAVELER_LIMIT_USD,
-} from "./data/categories.js";
+import { T, won, usd, NumField, SelectField, Row, panel } from "./ui.jsx";
+import { CATEGORIES, TRAVEL_RATES, TRAVELER_LIMIT_USD } from "./data/categories.js";
 import { calcImportCost, calcTravelTax } from "./lib/customs.js";
+import useOriginCountry from "./hooks/useOriginCountry.js";
+import OriginSelectField from "./OriginSelect.jsx";
 
 /* ──────────────────────────────────────────────
    같은 상품 — 직구 vs 여행 반입 비교 탭
-   - 직구: 국제배송으로 받는다. 소액면세 한도 USD 150, 초과 시 전체 과세.
+   - 직구: 국제배송으로 받는다. 소액면세 한도(출발국별 $150/$200), 초과 시 전체 과세.
    - 여행: 여행 중 사서 직접 들고 온다. 면세한도 USD 800, 초과분에만 과세.
-   면세한도가 5배 이상 차이 나서, 같은 상품도 어느 경로가 유리한지 크게 갈린다.
-   (여행은 이미 일본에 가 있다고 가정 — 항공권은 매몰비용으로 보고 계산에서 뺀다)
+   면세한도가 몇 배씩 차이 나서, 같은 상품도 어느 경로가 유리한지 크게 갈린다.
+   (여행은 이미 현지에 가 있다고 가정 — 항공권은 매몰비용으로 보고 계산에서 뺀다)
    ────────────────────────────────────────────── */
 
 /* 인장 스타일 판정 배지 */
@@ -39,40 +36,46 @@ function RouteStamp({ verdict }) {
 
 const cardStyle = { ...panel(), padding: "18px 18px 6px", marginBottom: 16 };
 
-export default function RouteCompareTab({ jr, ur }) {
+export default function RouteCompareTab({ jr, ur, krwPer }) {
+  const [countryId, setCountryId] = useState("JP");
   const [price, setPrice] = useState("120000");
   const [intlShip, setIntlShip] = useState("15000");
   const [catId, setCatId] = useState("hobby");
   const [rateId, setRateId] = useState("single20");
   const [selfReport, setSelfReport] = useState(true);
 
+  // 출발국 환율 — 여행도 같은 나라에서 사 온다고 보고 양쪽에 동일 적용
+  const origin = useOriginCountry({ countryId, jr, ur, krwPer });
+  const { country, rate: or } = origin;
+
   const priceJpy = parseFloat(price) || 0;
 
-  // 직구: 국제배송 + 관부가세 (면세한도 $150)
+  // 직구: 국제배송 + 관부가세 (소액면세 한도는 출발국별)
   const shop = useMemo(
     () => calcImportCost({
       priceJpy,
       intlShipKrw: parseFloat(intlShip) || 0,
       cat: CATEGORIES.find((c) => c.id === catId),
-      jpyKrw: jr,
+      jpyKrw: or,
       usdKrw: ur,
+      deMinimisUsd: country.deMinimisUsd,
     }),
-    [priceJpy, intlShip, catId, jr, ur]
+    [priceJpy, intlShip, catId, or, ur, country]
   );
 
   // 여행: 직접 반입, 배송비 없음 (면세한도 $800)
   const travel = useMemo(
     () => calcTravelTax({
       totalJpy: priceJpy,
-      jpyKrw: jr,
+      jpyKrw: or,
       usdKrw: ur,
       rate: TRAVEL_RATES.find((r) => r.id === rateId),
       selfReport,
     }),
-    [priceJpy, rateId, selfReport, jr, ur]
+    [priceJpy, rateId, selfReport, or, ur]
   );
 
-  const ready = priceJpy > 0 && jr > 0 && ur > 0;
+  const ready = priceJpy > 0 && or > 0 && ur > 0;
   // 주류·담배는 여행자 간이세율로 계산할 수 없어 비교 판정을 보류한다
   const computable = ready && !travel.special;
 
@@ -85,8 +88,9 @@ export default function RouteCompareTab({ jr, ur }) {
     <>
       {/* 입력 */}
       <section style={cardStyle}>
-        <NumField label="일본 상품 가격" suffix="¥" value={price} onChange={setPrice}
-          hint="일본 세금 포함가. 직구·여행 양쪽에 동일하게 적용됩니다" />
+        <OriginSelectField value={countryId} onChange={setCountryId} origin={origin} />
+        <NumField label={`${country.short} 상품 가격`} suffix={country.symbol} value={price} onChange={setPrice}
+          hint="현지 세금 포함가. 직구·여행 양쪽에 동일하게 적용됩니다" />
         <NumField label="국제 배송비 (직구 시 · 배대지·특송)" suffix="₩" value={intlShip} onChange={setIntlShip}
           hint="여행 반입에는 붙지 않습니다" />
         <SelectField label="품목 (직구 관세율)" value={catId} onChange={setCatId}>
@@ -125,7 +129,7 @@ export default function RouteCompareTab({ jr, ur }) {
                 <div style={{ fontSize: 12, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>
                   {verdict === "even"
                     ? "면세한도 차이가 세금에 큰 영향을 주지 않는 구간입니다."
-                    : `면세한도가 직구 $${DUTY_FREE_LIMIT_USD} vs 여행 $${TRAVELER_LIMIT_USD}로 달라, 이 상품은 ${verdict === "travel" ? "직접 들고 오는 편" : "배송으로 받는 편"}이 세금·비용에서 유리합니다.`}
+                    : `면세한도가 직구 $${country.deMinimisUsd} vs 여행 $${TRAVELER_LIMIT_USD}로 달라, 이 상품은 ${verdict === "travel" ? "직접 들고 오는 편" : "배송으로 받는 편"}이 세금·비용에서 유리합니다.`}
                 </div>
               </div>
             </div>
@@ -155,9 +159,9 @@ export default function RouteCompareTab({ jr, ur }) {
       </section>
 
       <p style={{ fontSize: 11.5, color: T.muted, lineHeight: 1.7, marginTop: 14 }}>
-        · 직구는 소액면세 한도 <b>{DUTY_FREE_LIMIT_USD}달러</b>를 넘으면 초과분이 아닌 전체 금액이 과세됩니다.<br />
+        · 직구는 소액면세 한도 <b>{country.deMinimisUsd}달러</b>({country.label} 출발 기준)를 넘으면 초과분이 아닌 전체 금액이 과세됩니다.<br />
         · 여행자 휴대품은 한도 <b>{TRAVELER_LIMIT_USD}달러</b>를 넘는 초과분에만 간이세율이 적용됩니다.<br />
-        · 여행은 이미 일본에 가 있다고 가정해 항공권·현지 체류비는 계산에 넣지 않았습니다. 이 여행에서 산 다른 물건이 있으면 면세한도가 함께 소진되니 실제로는 더 불리할 수 있습니다.<br />
+        · 여행은 이미 현지에 가 있다고 가정해 항공권·체류비는 계산에 넣지 않았습니다. 이 여행에서 산 다른 물건이 있으면 면세한도가 함께 소진되니 실제로는 더 불리할 수 있습니다.<br />
         · 직구는 배송 기간·반품 난이도를, 여행은 휴대 부피·파손 위험을 함께 고려하세요.
       </p>
     </>

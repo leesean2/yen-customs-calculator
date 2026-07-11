@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ORIGIN_COUNTRIES } from "../data/countries.js";
 
 /**
- * 목표 환율 알림 훅
- * - 설정(목표가·방향·활성화)은 localStorage에 저장되어 재방문 시 유지
+ * 목표 환율 알림 훅 (다통화 — JPY·USD·EUR·CNY)
+ * - 설정(통화·목표가·방향·활성화)은 localStorage에 저장되어 재방문 시 유지
  * - 활성화 중에는 10분마다, 탭 복귀 시마다 환율을 재조회
  * - 조건 도달 시 triggered=true (앱 상단 배너) + 브라우저 알림 1회 발송
  *
- * 목표가(target)는 100엔 기준 원화. liveRate는 내부 계산용 1엔당 원화로 받는다.
- * 환율 소스가 하루 1회 갱신되므로 분 단위 실시간 시세 알림은 아니다.
+ * krwPer: useExchangeRates의 통화→원/1단위 실시간 맵 (수동 입력값은 판정에 안 씀)
+ * 목표가(target)는 표기 단위 기준 원화 — 엔은 국내 관행상 100엔, 그 외 1단위
+ * (unit/unitLabel은 data/countries.js의 rateUnit/rateUnitLabel을 따른다).
  */
 const CFG_KEY = "yen-calc:rate-alert:v2";
 const LEGACY_CFG_KEY = "yen-calc:rate-alert:v1"; // target이 1엔 기준이던 시절
 const POLL_MS = 10 * 60 * 1000;
-const DEFAULT_CFG = { enabled: false, target: "", dir: "below" };
+const DEFAULT_CFG = { enabled: false, target: "", dir: "below", cur: "JPY" };
 
 function readCfg() {
   try {
@@ -33,7 +35,7 @@ function readCfg() {
   }
 }
 
-export default function useRateAlert(liveRate, refresh) {
+export default function useRateAlert(krwPer, refresh) {
   const [config, setConfig] = useState(readCfg);
   const notifiedRef = useRef(false);
 
@@ -45,11 +47,18 @@ export default function useRateAlert(liveRate, refresh) {
     });
   }, []);
 
-  const target = parseFloat(config.target); // 100엔 기준 원화
-  const live100 = liveRate * 100;
+  const cur = config.cur || "JPY";
+  const { rateUnit: unit, rateUnitLabel: unitLabel } =
+    ORIGIN_COUNTRIES.find((c) => c.currency === cur) ?? ORIGIN_COUNTRIES[0];
+  const unitText = `${unit === 1 ? "1" : unit}${unitLabel}`; // "100엔" · "1달러" 등
+
+  const live = krwPer?.[cur] ?? 0; // 1단위당 원
+  const liveUnit = live * unit;    // 표기 단위 기준 원
+  const liveText = liveUnit.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const target = parseFloat(config.target); // 표기 단위 기준 원화
   const triggered =
-    config.enabled && liveRate > 0 && target > 0 &&
-    (config.dir === "below" ? live100 <= target : live100 >= target);
+    config.enabled && live > 0 && target > 0 &&
+    (config.dir === "below" ? liveUnit <= target : liveUnit >= target);
 
   // 활성화 중 주기 갱신 + 탭 복귀 시 즉시 갱신
   useEffect(() => {
@@ -75,12 +84,12 @@ export default function useRateAlert(liveRate, refresh) {
     notifiedRef.current = true;
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
-        new Notification("엔화 목표 환율 도달 🔔", {
-          body: `현재 100엔 = ${(liveRate * 100).toFixed(2)}원 — 목표 ${target}원 ${config.dir === "below" ? "이하" : "이상"}`,
+        new Notification("목표 환율 도달 🔔", {
+          body: `현재 ${unitText} = ${liveText}원 — 목표 ${target}원 ${config.dir === "below" ? "이하" : "이상"}`,
         });
       } catch { /* 일부 브라우저는 페이지 알림 미지원 */ }
     }
-  }, [triggered, liveRate, target, config.dir]);
+  }, [triggered, liveText, unitText, target, config.dir]);
 
-  return { config, update, triggered, target };
+  return { config, update, triggered, target, live, liveUnit, liveText, unit, unitLabel, unitText };
 }

@@ -9,7 +9,8 @@ import { track } from "../lib/monitor.js";
  *
  * 반환 rates: { jpyKrw, usdKrw, krwPer, source } — krwPer는 통화→원 맵.
  * 통화 일반화: 출발국이 늘어도(미국/유럽 등) krwPer[currency]로 조회하면 되도록,
- * 각 소스가 통화별 원화 환율을 맵으로 반환한다. 지금 UI는 JPY·USD만 읽는다.
+ * 각 소스가 통화별 원화 환율을 맵으로 반환한다. 직구·비교 탭(useOriginCountry)이
+ * EUR·CNY를 여기서 읽고, 없으면 frankfurter 일간 조회로 폴백한다.
  * 폴백 체인이 몇 단계까지 떨어지는지는 monitor로 진단 전송(개인정보 없음, 소스명만).
  */
 const CACHE_KEY = "yen-calc:rates:v1";
@@ -34,9 +35,9 @@ async function fetchFromLiveApi(signal) {
   }
   const data = await res.json();
   if (!data.jpyKrw || !data.usdKrw) throw new Error("live-rate: 응답 형식 오류");
-  // 실시간 소스는 아직 JPY·USD만 제공 — 다른 통화 확장 시 api/_lib/rates.js도 넓힐 것
+  // 신형 API는 krwPer 맵(EUR·CNY 포함)을 주고, 구형 응답이면 JPY·USD만 구성한다
   return {
-    krwPer: { USD: data.usdKrw, JPY: data.jpyKrw },
+    krwPer: data.krwPer ?? { USD: data.usdKrw, JPY: data.jpyKrw },
     source: data.source,
     apiUpdatedAt: data.at ?? null,
   };

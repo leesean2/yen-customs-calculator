@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { T, NumField, SelectField, panel } from "./ui.jsx";
+import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
 import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
@@ -47,7 +48,8 @@ const smallBtn = (solid) => ({
   background: solid ? T.indigo : "transparent", color: solid ? "#fff" : T.indigo,
 });
 
-/* 백그라운드 푸시 구독 — 탭을 닫아도 서버(크론)가 하루 1회 확인 후 발송 */
+/* 백그라운드 푸시 구독 — 탭을 닫아도 서버(크론)가 하루 1회 확인 후 발송
+   서버 크론은 아직 엔화만 확인하므로, 다른 통화 목표는 푸시에 반영하지 않는다 */
 function PushBlock({ config }) {
   const [st, setSt] = useState({ phase: "checking", error: null });
 
@@ -68,7 +70,12 @@ function PushBlock({ config }) {
         const p = await Notification.requestPermission();
         if (p !== "granted") throw new Error("브라우저 알림 권한이 필요합니다");
       }
-      await subscribePush({ target: config.target, dir: config.dir, anomaly: true });
+      // 크론이 엔화만 확인하므로 다른 통화 목표는 보내지 않는다(이상 감지 푸시만)
+      await subscribePush({
+        target: (config.cur || "JPY") === "JPY" ? config.target : "",
+        dir: config.dir,
+        anomaly: true,
+      });
       setSt({ phase: "subscribed" });
     } catch (e) {
       setSt({ phase: "error", error: e.message });
@@ -117,12 +124,18 @@ function PushBlock({ config }) {
           목표 환율이 비어 있으면 이상 감지 경고만 푸시로 받습니다.
         </p>
       )}
+      {(config.cur || "JPY") !== "JPY" && (
+        <p style={{ fontSize: 11, color: T.muted, margin: "0 0 10px" }}>
+          백그라운드 푸시의 목표 알림은 아직 엔화(JPY)만 지원합니다 — 다른 통화 목표는
+          화면 배너·브라우저 알림으로만 확인되고, 푸시로는 이상 감지 경고만 받습니다.
+        </p>
+      )}
     </div>
   );
 }
 
-export default function AlertTab({ liveRate, rateAlert }) {
-  const { config, update, triggered } = rateAlert;
+export default function AlertTab({ rateAlert }) {
+  const { config, update, triggered, live, liveText, unitText } = rateAlert;
 
   // ── 브라우저 알림 권한 ──
   const [notifPerm, setNotifPerm] = useState(
@@ -189,15 +202,23 @@ export default function AlertTab({ liveRate, rateAlert }) {
       <section style={sectionStyle}>
         <div style={titleStyle}>🔔 목표 환율 알림</div>
         <p style={descStyle}>
-          현재 100엔 = <b style={{ color: T.ink }}>{liveRate > 0 ? (liveRate * 100).toFixed(2) + "원" : "—"}</b>.
+          현재 {unitText} = <b style={{ color: T.ink }}>{live > 0 ? liveText + "원" : "—"}</b>.
           목표에 도달하면 앱 상단 배너와 브라우저 알림으로 알려드립니다.
           (탭이 열려 있는 동안 10분마다 확인 · 실시간 시세 소스라 수 분 단위로 갱신됩니다)
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <NumField label="목표 환율" suffix="원 / 100엔" value={config.target} onChange={(v) => update({ target: v })} />
+          {/* 통화를 바꾸면 목표가 단위 의미가 달라지므로 비워서 오알림을 막는다 */}
+          <SelectField label="통화" value={config.cur || "JPY"} onChange={(v) => update({ cur: v, target: "" })}>
+            {ORIGIN_COUNTRIES.map((c) => (
+              <option key={c.currency} value={c.currency}>
+                {c.flag} {c.rateUnitLabel} ({c.currency})
+              </option>
+            ))}
+          </SelectField>
+          <NumField label="목표 환율" suffix={`원 / ${unitText}`} value={config.target} onChange={(v) => update({ target: v })} />
           <SelectField label="조건" value={config.dir} onChange={(v) => update({ dir: v })}>
-            <option value="below">이하로 내려가면 (엔저 · 살 때 유리)</option>
+            <option value="below">이하로 내려가면 (살 때 유리)</option>
             <option value="above">이상으로 올라가면</option>
           </SelectField>
         </div>
@@ -227,7 +248,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
 
         {triggered && (
           <div style={{ background: T.greenSoft, border: `1.5px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13.5, fontWeight: 700, color: T.green }}>
-            🎯 목표 도달! 현재 100엔 = {(liveRate * 100).toFixed(2)}원 — 목표 {config.target}원 {config.dir === "below" ? "이하" : "이상"}
+            🎯 목표 도달! 현재 {unitText} = {liveText}원 — 목표 {config.target}원 {config.dir === "below" ? "이하" : "이상"}
           </div>
         )}
 
@@ -237,7 +258,7 @@ export default function AlertTab({ liveRate, rateAlert }) {
       {/* ── 2. 환율 이상 감지 ── */}
       <section style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지</div>
+          <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지 (엔화)</div>
           <button onClick={runCheck} disabled={check.phase === "loading"} style={{
             border: `1px solid ${T.indigo}`, background: "transparent", color: T.indigo,
             borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
