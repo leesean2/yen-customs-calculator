@@ -24,7 +24,7 @@ src/
   RouteCompareTab.jsx   직구 vs 여행 반입 비교 (출발국 선택 · 면세 $150/$200 vs $800)
   CompareTab.jsx        일본 vs 국내 가격 비교
   AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
-  OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약
+  OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약 + JSON 백업/복원
   CalcBreakdown.jsx     '계산 근거 펼쳐보기' 토글 (직구·여행자 공용)
   ui.jsx                테마(T→CSS 변수)·포매터·NumField/Row/Stamp/panel 공용
   index.css             라이트/다크 팔레트(prefers-color-scheme)를 CSS 변수로 정의
@@ -34,6 +34,7 @@ src/
   lib/orders.js         구매 이력 저장소, lib/share.js 계산 결과 URL 공유
   lib/push.js           웹 푸시 클라이언트, lib/net.js fetch 타임아웃, lib/monitor.js 클라이언트 진단
   hooks/useExchangeRates.js  환율 로딩·캐시(통화→원 맵), useRateAlert.js 목표 알림, useOrders.js 합산과세 판정
+tests/unit/             vitest 단위 테스트 — 세금 계산·이력 백업 순수 함수 (npm run test:unit)
 tests/e2e/              Playwright E2E — 세금 경계값·계산 근거·공유·신선도 (npm run test:e2e)
 tests/pwa/              오프라인 렌더 + 클라이언트 진단 비콘 (npm run test:pwa)
 api/
@@ -72,7 +73,8 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
   성공값(localStorage)으로 폴백하고 고시일과 재시도 버튼을 보여준다(`OriginSelect.jsx`).
   면세 판정용 USD 환율은 상품 통화와 무관하게 항상 필요해 `LIMIT_CURRENCY`로 분리.
 - **목표 환율 알림** — 알림 탭에서 통화(JPY·USD·EUR·CNY)를 골라 목표를 걸 수 있다.
-  백그라운드 푸시(서버 크론)는 아직 엔화 목표만 확인한다.
+  백그라운드 푸시 구독에도 통화가 저장되어, 크론이 구독별 통화의 환율로 판정해 발송한다
+  (통화 없는 기존 구독은 엔 취급).
 - **환율 추이 차트** — 알림 탭에서 선택한 통화의 30/90일 시계열(ECB 일간,
   `fetchKrwSeries`)을 라인 차트로 보여준다(`src/RateTrend.jsx`) — 최저·최고 직접
   라벨과 호버 크로스헤어 툴팁, 목표가를 정할 때 현재가 싼 편인지 참고용.
@@ -81,7 +83,6 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
 
 구매 이력은 주문에 출발국을 기록하고, 합산과세 판정·월간 물품 합계는 같은 출발국(통화)
 기록끼리만 합산한다 — 통화가 섞이면 단일 환율로 환산할 수 없기 때문.
-(실시간 `/api/live-rate`는 아직 JPY·USD만 제공 — 다른 통화가 필요하면 `api/_lib/rates.js`를 넓힐 것)
 
 ## 클라이언트 진단 (에러 모니터링)
 
@@ -171,6 +172,9 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 (`src/lib/orders.js`, 최대 50건·60일 보존, 서버 전송 없음). 이후 **같은 날 같은 판매자**로
 주문을 입력하면 기록과의 합산 물품가격을 달러로 환산해 면세한도(USD 150) 초과 여부를 자동 경고한다.
 합산 판정 기준은 면세 판정과 동일한 '물품가격'(상품가+일본 내 배송비).
+이력 카드의 **내보내기/가져오기** 버튼으로 JSON 파일 백업·복원이 가능하다 — localStorage
+전용이라 브라우저를 바꾸면 사라지기 때문. 가져오기는 필드 화이트리스트로 검증하고
+id 중복은 기존 기록을 유지한다(`exportOrders`/`parseImportedOrders`/`mergeOrders`).
 
 기록에는 기록 시점의 예상 세금(`taxKrw`)·최종 비용(`finalKrw`)도 저장되어, 이력 카드 상단에
 **이번 달 주문 건수·물품가 합계·예상 세금 합계**가 요약으로 표시된다.
@@ -225,12 +229,15 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 ## 테스트
 
 ```bash
+npm run test:unit  # vitest — 세금 계산·이력 백업 순수 함수 단위 테스트 (1초 미만)
 npm run test:e2e   # Playwright — vite dev 서버 자동 기동, 외부 환율 API 차단(고정 환율 수동 입력)
 npm run test:pwa   # 프로덕션 빌드+vite preview 상대로 서비스워커 오프라인 동작 검증
 ```
 
-`test:e2e`는 세금 로직 경계값(면세 $150, 개소세 200만원, 합산과세 트리거), 계산 근거 수식,
-URL 공유 왕복, 세율 신선도 배너(가짜 시계)를 22개 시나리오로 검증한다. 세율·문구·수식을 바꾸면
+`test:unit`은 `lib/customs.js`(면세·간이세율·주류 세목)와 `lib/orders.js`(백업 왕복·병합)의
+경계값을 브라우저 없이 검증한다 — 계산 로직을 고치면 여기부터 돌리는 게 빠르다.
+`test:e2e`는 같은 경계값을 UI 입력→화면 결과로, 더불어 계산 근거 수식, URL 공유 왕복,
+다국가·별도 면세·환율 추이·세율 신선도 배너(가짜 시계)까지 검증한다. 세율·문구·수식을 바꾸면
 반드시 실행할 것. `test:pwa`는 SW 등록·활성화와 첫 방문 직후 오프라인 렌더를 검증한다.
 
 ### 실기기 수동 확인 (자동화 불가 영역)

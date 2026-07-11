@@ -127,7 +127,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
 
   // 같은 날 + 같은 판매자 기록 → 합산과세 경고
   // 면세 판정 기준은 '물품가격'(상품가+현지 배송비) — 합산도 같은 기준
-  const { orders, add, remove, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver } =
+  const { orders, add, remove, importOrders, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver } =
     useOrders({ seller, goodsJpy: shop.goodsJpy, jpyKrw: or, usdKrw: ur, limitUsd: country.deMinimisUsd, country: countryId });
 
   const canRecord = sellerTrim && shop.goodsJpy > 0;
@@ -282,6 +282,7 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
           finalKrw: Math.round(shop.final),
         })}
         onRemove={remove}
+        onImport={importOrders}
       />
 
 

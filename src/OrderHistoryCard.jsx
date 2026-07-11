@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { T, money, won, panel } from "./ui.jsx";
-import { todayStr } from "./lib/orders.js";
+import { todayStr, exportOrders, parseImportedOrders } from "./lib/orders.js";
 import { getCountry } from "./data/countries.js";
 
-/* 구매 이력 카드 — 기록 버튼 + 최근 목록 + 이번 달 지출 요약 (직구 탭 하단) */
-export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove }) {
+/* 구매 이력 카드 — 기록 버튼 + 최근 목록 + 이번 달 지출 요약 + JSON 백업/복원 (직구 탭 하단) */
+export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove, onImport }) {
   const [justSaved, setJustSaved] = useState(false);
+  const [ioMsg, setIoMsg] = useState(null); // { ok, text } — 가져오기 결과 안내
   const timerRef = useRef(null);
+  const fileRef = useRef(null);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const record = () => {
@@ -14,6 +16,31 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
     setJustSaved(true);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setJustSaved(false), 2500);
+  };
+
+  // 내보내기 — 이력 전체를 JSON 파일로 다운로드 (서버 전송 없음)
+  const doExport = () => {
+    const blob = new Blob([exportOrders(orders)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `yen-calc-orders-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // 가져오기 — 내보낸 JSON을 병합 (id 중복은 유지, 60일 지난 기록은 제외)
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일 재선택도 change가 발생하도록
+    if (!file) return;
+    try {
+      const imported = parseImportedOrders(await file.text());
+      const added = onImport(imported);
+      setIoMsg({ ok: true, text: `✓ ${added}건 가져옴 (중복·60일 경과 기록 제외)` });
+    } catch {
+      setIoMsg({ ok: false, text: "가져오기 실패 — 이 앱에서 내보낸 JSON 파일인지 확인하세요" });
+    }
   };
 
   // 이번 달 지출 요약 — 세금은 taxKrw가 기록된 주문(신규 형식)만 합산한다
@@ -79,9 +106,30 @@ export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove
           ))}
         </ul>
       )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10, paddingTop: 8, borderTop: `1px dashed ${T.line}` }}>
+        <button onClick={doExport} disabled={orders.length === 0} style={ioBtnStyle(orders.length > 0)}>
+          ⬇ 내보내기 (JSON)
+        </button>
+        <button onClick={() => fileRef.current?.click()} style={ioBtnStyle(true)}>
+          ⬆ 가져오기
+        </button>
+        <input ref={fileRef} type="file" accept=".json,application/json" onChange={onFile} style={{ display: "none" }} />
+        {ioMsg && (
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: ioMsg.ok ? T.green : T.red }}>{ioMsg.text}</span>
+        )}
+      </div>
       <p style={{ margin: "8px 0 0", fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
         이력은 이 브라우저에만 저장되며(서버 전송 없음) 60일이 지나면 자동 삭제됩니다.
+        브라우저를 바꾸거나 데이터를 지우기 전에 내보내기로 백업하세요.
       </p>
     </section>
   );
 }
+
+const ioBtnStyle = (enabled) => ({
+  border: `1px solid ${enabled ? T.indigo : T.line}`,
+  background: "transparent",
+  color: enabled ? T.indigo : T.muted,
+  borderRadius: 7, padding: "4px 10px", fontSize: 11.5, fontWeight: 700,
+  cursor: enabled ? "pointer" : "not-allowed",
+});

@@ -43,3 +43,46 @@ export function newOrderId() {
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+/* ── 내보내기 / 가져오기 — localStorage 전용 저장소라 브라우저를 바꾸면
+   이력이 사라지므로, JSON 파일 백업·복원 경로를 제공한다 ── */
+
+/** 이력을 내보내기용 JSON 문자열로 직렬화 */
+export function exportOrders(list) {
+  return JSON.stringify(
+    { app: "yen-calc", kind: "orders", version: 1, exportedAt: new Date().toISOString(), orders: list },
+    null, 2
+  );
+}
+
+/**
+ * 가져온 JSON 텍스트를 파싱·검증해 주문 배열로 반환 (형식 오류는 throw)
+ * loadOrders와 같은 규칙으로 거른다 — 보존기간(60일) 밖·필수 필드 누락은 제외,
+ * 필드는 화이트리스트로만 복사해 저장소에 임의 데이터가 들어오지 않게 한다.
+ */
+export function parseImportedOrders(text) {
+  const data = JSON.parse(text);
+  const list = Array.isArray(data) ? data : data?.orders;
+  if (!Array.isArray(list)) throw new Error("주문 목록이 없습니다");
+  const cutoff = cutoffStr();
+  return list
+    .filter((o) => o?.id && typeof o.date === "string" && o.date >= cutoff && o?.seller && o?.goodsJpy > 0)
+    .map((o) => ({
+      id: String(o.id),
+      date: o.date.slice(0, 10),
+      seller: String(o.seller).slice(0, 80),
+      item: String(o.item ?? "").slice(0, 120),
+      country: typeof o.country === "string" ? o.country.slice(0, 2) : "JP",
+      goodsJpy: +o.goodsJpy,
+      taxKrw: +o.taxKrw > 0 ? +o.taxKrw : 0,
+      finalKrw: +o.finalKrw > 0 ? +o.finalKrw : 0,
+    }));
+}
+
+/** 기존 이력과 병합 — id 중복은 기존 우선, 날짜 내림차순, 최대 개수 유지 */
+export function mergeOrders(current, imported) {
+  const seen = new Set(current.map((o) => o.id));
+  const merged = [...current, ...imported.filter((o) => !seen.has(o.id))];
+  merged.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return merged.slice(0, MAX_ORDERS);
+}

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { loadOrders, saveOrders, newOrderId, todayStr } from "../lib/orders.js";
+import { loadOrders, saveOrders, newOrderId, todayStr, mergeOrders } from "../lib/orders.js";
 
 /**
  * 구매 이력 + 합산과세 판정 훅
@@ -29,6 +29,16 @@ export default function useOrders({ seller, goodsJpy, jpyKrw, usdKrw, limitUsd, 
     });
   }, []);
 
+  /** 백업 파일에서 가져온 주문을 병합 — 새로 추가된 건수를 반환 */
+  const importOrders = useCallback((imported) => {
+    const seen = new Set(orders.map((o) => o.id));
+    const added = imported.filter((o) => !seen.has(o.id)).length;
+    const next = mergeOrders(orders, imported);
+    saveOrders(next);
+    setOrders(next);
+    return added;
+  }, [orders]);
+
   const sellerTrim = seller.trim();
   const dupes = useMemo(() => {
     if (!sellerTrim) return [];
@@ -45,5 +55,5 @@ export default function useOrders({ seller, goodsJpy, jpyKrw, usdKrw, limitUsd, 
   const combinedUsd = usdKrw ? ((dupSumJpy + goodsJpy) * jpyKrw) / usdKrw : NaN;
   const combinedOver = combinedUsd > limitUsd;
 
-  return { orders, add, remove, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver };
+  return { orders, add, remove, importOrders, sellerTrim, dupes, dupSumJpy, combinedUsd, combinedOver };
 }

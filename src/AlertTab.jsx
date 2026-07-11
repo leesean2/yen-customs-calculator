@@ -50,7 +50,7 @@ const smallBtn = (solid) => ({
 });
 
 /* 백그라운드 푸시 구독 — 탭을 닫아도 서버(크론)가 하루 1회 확인 후 발송
-   서버 크론은 아직 엔화만 확인하므로, 다른 통화 목표는 푸시에 반영하지 않는다 */
+   목표 통화(cur)도 함께 저장되어 크론이 그 통화의 환율로 판정한다 */
 function PushBlock({ config }) {
   const [st, setSt] = useState({ phase: "checking", error: null });
 
@@ -71,10 +71,10 @@ function PushBlock({ config }) {
         const p = await Notification.requestPermission();
         if (p !== "granted") throw new Error("브라우저 알림 권한이 필요합니다");
       }
-      // 크론이 엔화만 확인하므로 다른 통화 목표는 보내지 않는다(이상 감지 푸시만)
       await subscribePush({
-        target: (config.cur || "JPY") === "JPY" ? config.target : "",
+        target: config.target,
         dir: config.dir,
+        cur: config.cur || "JPY",
         anomaly: true,
       });
       setSt({ phase: "subscribed" });
@@ -97,7 +97,7 @@ function PushBlock({ config }) {
       <div style={{ fontSize: 13, fontWeight: 800, color: T.ink, marginBottom: 4 }}>📲 백그라운드 푸시 (탭을 닫아도 알림)</div>
       <p style={{ ...descStyle, margin: "0 0 10px" }}>
         구독하면 서버가 하루 1회(오전 10시경) 환율을 확인해 목표 도달·이상 감지 시 푸시를 보냅니다.
-        같은 알림은 하루 1회만 발송됩니다. 목표 환율을 바꾸면 &lsquo;목표 다시 반영&rsquo;을 눌러 주세요.
+        같은 알림은 하루 1회만 발송됩니다. 목표 환율이나 통화를 바꾸면 &lsquo;목표 다시 반영&rsquo;을 눌러 주세요.
       </p>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
         {st.phase === "checking" && <span style={{ fontSize: 12, color: T.muted }}>구독 상태 확인 중…</span>}
@@ -123,12 +123,6 @@ function PushBlock({ config }) {
       {(st.phase === "idle" || st.phase === "subscribed") && !(parseFloat(config.target) > 0) && (
         <p style={{ fontSize: 11, color: T.muted, margin: "0 0 10px" }}>
           목표 환율이 비어 있으면 이상 감지 경고만 푸시로 받습니다.
-        </p>
-      )}
-      {(config.cur || "JPY") !== "JPY" && (
-        <p style={{ fontSize: 11, color: T.muted, margin: "0 0 10px" }}>
-          백그라운드 푸시의 목표 알림은 아직 엔화(JPY)만 지원합니다 — 다른 통화 목표는
-          화면 배너·브라우저 알림으로만 확인되고, 푸시로는 이상 감지 경고만 받습니다.
         </p>
       )}
     </div>

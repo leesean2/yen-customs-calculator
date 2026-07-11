@@ -10,4 +10,9 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },
+  test: {
+    // vitest — 순수 계산 로직 단위 테스트 (Playwright 스펙과 겹치지 않게 경로 한정)
+    include: ['tests/unit/**/*.spec.js'],
+    environment: 'node',
+  },
 })

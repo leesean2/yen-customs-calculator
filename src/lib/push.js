@@ -39,8 +39,8 @@ export async function getPushSubscription() {
   }
 }
 
-/** 구독 생성/갱신 후 서버에 목표 조건과 함께 저장 */
-export async function subscribePush({ target, dir, anomaly = true }) {
+/** 구독 생성/갱신 후 서버에 목표 조건(통화 포함)과 함께 저장 */
+export async function subscribePush({ target, dir, cur = "JPY", anomaly = true }) {
   const cfgRes = await fetch("/api/push", { signal: timeoutSignal(10_000) });
   if (!cfgRes.headers.get("content-type")?.includes("json")) {
     throw new Error("푸시 API에 연결할 수 없습니다 (로컬 개발 시 vercel dev 필요)");
@@ -59,7 +59,7 @@ export async function subscribePush({ target, dir, anomaly = true }) {
   const res = await fetch("/api/push", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ subscription: sub.toJSON(), target, dir, anomaly }),
+    body: JSON.stringify({ subscription: sub.toJSON(), target, dir, cur, anomaly }),
     signal: timeoutSignal(10_000),
   });
   if (!res.ok) throw new Error("구독 정보를 서버에 저장하지 못했습니다");

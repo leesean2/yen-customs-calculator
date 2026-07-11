@@ -1,12 +1,13 @@
 /**
  * 웹 푸시 구독 관리
  * GET    → { configured, publicKey }  (클라이언트 구독에 필요한 VAPID 공개키)
- * POST   → 구독 등록/갱신 { subscription, target, dir, anomaly }
+ * POST   → 구독 등록/갱신 { subscription, target, dir, cur, anomaly }
  * DELETE → 구독 해제 { endpoint }
  */
 import { saveSub, deleteSub, countSubs } from "./_lib/subs.js";
 
 const MAX_SUBS = 500; // 폭주 방지
+const CURRENCIES = ["JPY", "USD", "EUR", "CNY"]; // data/countries.js 출발국 통화와 동일
 
 export default async function handler(req, res) {
   const configured = !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.BLOB_READ_WRITE_TOKEN);
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
   if (!configured) return res.status(503).json({ error: "푸시 서버가 설정되지 않았습니다" });
 
   if (req.method === "POST") {
-    const { subscription, target, dir, anomaly } = req.body || {};
+    const { subscription, target, dir, cur, anomaly } = req.body || {};
     if (
       typeof subscription?.endpoint !== "string" ||
       !subscription.endpoint.startsWith("https://") ||
@@ -34,6 +35,7 @@ export default async function handler(req, res) {
       subscription,
       target: parseFloat(target) > 0 ? parseFloat(target) : null,
       dir: dir === "above" ? "above" : "below",
+      cur: CURRENCIES.includes(cur) ? cur : "JPY", // 기존 구독(cur 없음)도 엔 취급
       anomaly: anomaly !== false,
       createdAt: Date.now(),
       lastSent: {},
