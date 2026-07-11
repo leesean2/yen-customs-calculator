@@ -4,6 +4,7 @@ import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
 import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
+import RateTrendChart from "./RateTrend.jsx";
 
 /* ──────────────────────────────────────────────
    환율 알림 · 이상 감지 탭
@@ -251,7 +252,10 @@ export default function AlertTab({ rateAlert }) {
         <PushBlock config={config} />
       </section>
 
-      {/* ── 2. 환율 이상 감지 ── */}
+      {/* ── 2. 환율 추이 — 목표가를 정할 때 현재가 싼 편인지 참고 ── */}
+      <RateTrendChart currency={config.cur || "JPY"} />
+
+      {/* ── 3. 환율 이상 감지 ── */}
       <section style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지 (엔화)</div>

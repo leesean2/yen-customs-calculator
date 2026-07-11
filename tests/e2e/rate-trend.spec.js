@@ -1,0 +1,50 @@
+import { test, expect } from "@playwright/test";
+
+/* ──────────────────────────────────────────────
+   환율 추이 차트 E2E (알림 탭) — frankfurter 시계열을 모킹해
+   최저·최고·현재 라벨, 호버 툴팁, 통화 전환 갱신을 검증한다.
+
+   모킹 시계열(원/1단위): JPY 9.2 → 9.8 → 9.5 (×100 표기: 920·980·950)
+                        USD 1,350 → 1,420 → 1,400
+   ────────────────────────────────────────────── */
+
+async function openTrend(page) {
+  await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
+  await page.route(/api\.frankfurter\.dev\/v1\/\d{4}-\d{2}-\d{2}\.\./, (r) => {
+    const base = new URL(r.request().url()).searchParams.get("base");
+    const rates = base === "JPY"
+      ? { "2026-07-06": { KRW: 9.2 }, "2026-07-07": { KRW: 9.8 }, "2026-07-08": { KRW: 9.5 } }
+      : { "2026-07-06": { KRW: 1350 }, "2026-07-07": { KRW: 1420 }, "2026-07-08": { KRW: 1400 } };
+    r.fulfill({ json: { base, rates } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "알림" }).click();
+}
+
+test("R1. 엔 추이 — 최저·최고·현재가 100엔 기준으로 표시된다", async ({ page }) => {
+  await openTrend(page);
+  await expect(page.getByText("최저 920원")).toBeVisible();
+  await expect(page.getByText("최고 980원")).toBeVisible();
+  await expect(page.getByText(/현재 950원/)).toBeVisible();
+  await expect(page.getByRole("img", { name: /환율 추이/ })).toBeVisible();
+
+  // 호버 크로스헤어 툴팁 — 차트 중앙은 두 번째 포인트(7/7 · 980원)
+  // hover()는 화면 밖 요소를 스크롤해 온 뒤 중앙에 포인터를 올린다
+  await page.getByRole("img", { name: /환율 추이/ }).hover();
+  await expect(page.getByText("7/7 · 980원")).toBeVisible();
+});
+
+test("R2. 알림 통화를 바꾸면 그 통화의 시계열로 갱신된다", async ({ page }) => {
+  await openTrend(page);
+  await expect(page.getByText("최고 980원")).toBeVisible();
+  await page.getByLabel("통화").selectOption("USD");
+  await expect(page.getByText("(원/1달러 · ECB 일간)")).toBeVisible();
+  await expect(page.getByText("최고 1,420원")).toBeVisible();
+  await expect(page.getByText("최저 1,350원")).toBeVisible();
+});
+
+test("R3. 기간 토글(90일)로 다시 조회해도 정상 렌더링된다", async ({ page }) => {
+  await openTrend(page);
+  await page.getByRole("button", { name: "90일" }).click();
+  await expect(page.getByText("최고 980원")).toBeVisible();
+});
