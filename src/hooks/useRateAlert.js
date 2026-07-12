@@ -92,5 +92,6 @@ export default function useRateAlert(krwPer, refresh) {
     }
   }, [triggered, liveText, unitText, target, config.dir]);
 
-  return { config, update, triggered, target, live, liveUnit, liveText, unit, unitLabel, unitText };
+  // cur: 손상 저장값을 엔으로 정규화한 통화 — 소비자(이상 감지 등)가 그대로 조회 키로 쓴다
+  return { config, update, cur, triggered, target, live, liveUnit, liveText, unit, unitLabel, unitText };
 }

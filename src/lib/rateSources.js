@@ -1,12 +1,12 @@
 /**
- * 환율 이상 감지용 다중 소스 조회
- * 서로 독립적인 무료 소스 3곳에서 JPY→KRW를 받아 교차 검증한다.
+ * 환율 이상 감지용 다중 소스 조회 (다통화 — JPY·USD·EUR·CNY)
+ * 서로 독립적인 무료 소스 3곳에서 통화→KRW를 받아 교차 검증한다.
  * 소스별 스냅샷 시점이 달라 0.5~1% 안팎의 차이는 정상 범위.
  */
 import { timeoutSignal } from "./net.js";
 
-async function fetchErApi(signal) {
-  const res = await fetch("https://open.er-api.com/v6/latest/JPY", { signal });
+async function fetchErApi(cur, signal) {
+  const res = await fetch(`https://open.er-api.com/v6/latest/${cur}`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const v = data?.rates?.KRW;
@@ -14,8 +14,8 @@ async function fetchErApi(signal) {
   return v;
 }
 
-async function fetchFrankfurter(signal) {
-  const res = await fetch("https://api.frankfurter.dev/v1/latest?base=JPY&symbols=KRW", { signal });
+async function fetchFrankfurter(cur, signal) {
+  const res = await fetch(`https://api.frankfurter.dev/v1/latest?base=${cur}&symbols=KRW`, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const v = data?.rates?.KRW;
@@ -23,14 +23,15 @@ async function fetchFrankfurter(signal) {
   return v;
 }
 
-async function fetchCurrencyApi(signal) {
+async function fetchCurrencyApi(cur, signal) {
+  const lc = cur.toLowerCase();
   const res = await fetch(
-    "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/jpy.json",
+    `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${lc}.json`,
     { signal }
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  const v = data?.jpy?.krw;
+  const v = data?.[lc]?.krw;
   if (!v) throw new Error("응답 형식 오류");
   return v;
 }
@@ -41,13 +42,13 @@ const SOURCES = [
   { name: "currency-api (jsDelivr)", fn: fetchCurrencyApi },
 ];
 
-/** 모든 소스를 병렬 조회. 실패한 소스도 { ok:false }로 함께 반환 */
-export async function fetchJpyKrwAll(signal) {
+/** 모든 소스를 병렬 조회 (krw는 1단위당 원). 실패한 소스도 { ok:false }로 함께 반환 */
+export async function fetchKrwAll(currency = "JPY", signal) {
   const sig = signal ?? timeoutSignal(10_000); // 한 소스가 먹통이어도 UI가 멈추지 않게
-  const results = await Promise.allSettled(SOURCES.map((s) => s.fn(sig)));
+  const results = await Promise.allSettled(SOURCES.map((s) => s.fn(currency, sig)));
   return SOURCES.map((s, i) =>
     results[i].status === "fulfilled"
-      ? { name: s.name, ok: true, jpyKrw: results[i].value }
+      ? { name: s.name, ok: true, krw: results[i].value }
       : { name: s.name, ok: false, error: results[i].reason?.message ?? "실패" }
   );
 }

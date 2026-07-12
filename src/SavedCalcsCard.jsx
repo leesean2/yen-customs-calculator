@@ -6,6 +6,9 @@ import {
 } from "./lib/savedCalcs.js";
 import { todayStr } from "./lib/orders.js";
 import JsonBackupRow from "./JsonBackupRow.jsx";
+import SavedCompareBlock from "./SavedCompareBlock.jsx";
+
+const MAX_COMPARE = 3;
 
 /* 계산 저장함 카드 (직구 탭 결과 아래) — 현재 계산을 이름 붙여 보관.
    makeSnapshot(): { query, summary } — 부모(ShopTab)가 공유 링크와 같은
@@ -15,10 +18,23 @@ export default function SavedCalcsCard({ makeSnapshot }) {
   const [saved, setSaved] = useState(loadSavedCalcs);
   const [name, setName] = useState("");
   const [justSaved, setJustSaved] = useState(false);
+  // 비교 선택 — 2건 이상 고르면 아래 비교 블록이 열린다 (최대 MAX_COMPARE건)
+  const [selected, setSelected] = useState([]);
   const timerRef = useRef(null);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const persist = (list) => { setSaved(list); saveSavedCalcs(list); };
+  const persist = (list) => {
+    setSaved(list);
+    saveSavedCalcs(list);
+    // 삭제·가져오기로 사라진 항목은 비교 선택에서도 뺀다
+    setSelected((ids) => ids.filter((id) => list.some((s) => s.id === id)));
+  };
+  const toggleSelect = (id) =>
+    setSelected((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id)
+      : ids.length >= MAX_COMPARE ? ids
+      : [...ids, id]
+    );
 
   const full = saved.length >= MAX_SAVED_CALCS;
   const save = () => {
@@ -73,6 +89,15 @@ export default function SavedCalcsCard({ makeSnapshot }) {
         <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0 }}>
           {saved.map((s) => (
             <li key={s.id} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "7px 0", borderTop: `1px solid ${T.line}`, fontSize: 12.5 }}>
+              {saved.length >= 2 && (
+                <input
+                  type="checkbox" aria-label={`${s.name} 비교 선택`}
+                  checked={selected.includes(s.id)}
+                  disabled={!selected.includes(s.id) && selected.length >= MAX_COMPARE}
+                  onChange={() => toggleSelect(s.id)}
+                  style={{ width: 15, height: 15, accentColor: T.indigo, flexShrink: 0, alignSelf: "center" }}
+                />
+              )}
               <span style={{ color: T.muted, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{s.savedAt}</span>
               <span style={{ fontWeight: 700, color: T.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
               <span style={{ color: T.muted, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{s.summary}</span>
@@ -84,6 +109,15 @@ export default function SavedCalcsCard({ makeSnapshot }) {
           ))}
         </ul>
       )}
+      {saved.length >= 2 && selected.length < 2 && (
+        <p style={{ margin: "6px 0 0", fontSize: 11, color: T.muted }}>
+          체크로 2~{MAX_COMPARE}건을 고르면 아래에서 나란히 비교합니다 (합산과세 시나리오 포함).
+        </p>
+      )}
+      {selected.length >= 2 && (
+        <SavedCompareBlock entries={saved.filter((s) => selected.includes(s.id))} />
+      )}
+
       <JsonBackupRow
         exportText={() => exportSavedCalcs(saved)}
         filename={`yen-calc-saved-${todayStr()}.json`}

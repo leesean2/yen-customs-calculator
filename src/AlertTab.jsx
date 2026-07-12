@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { T, NumField, SelectField, CheckField, chipBtn, panel } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
-import { fetchJpyKrwAll, median, deviationPct } from "./lib/rateSources.js";
+import { fetchKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
 import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
 import RateTrendChart from "./RateTrend.jsx";
@@ -13,14 +13,13 @@ import RateTrendChart from "./RateTrend.jsx";
       (토스뱅크 반값 엔화 오류 사례처럼 특정 고시가 시장과 크게 벌어진 경우 경고)
    ────────────────────────────────────────────── */
 
-/* 내부 값은 1엔당 원화 — 표시는 국내 관행대로 100엔 기준 */
-const rate100 = (n) => (isNaN(n) ? "—" : (n * 100).toFixed(2) + "원");
-
 function devColor(absPct) {
   return absPct < 1 ? T.green : absPct < 3 ? T.warnLine : T.red;
 }
 
-function SourceRow({ name, value, dev, error, badge }) {
+/* valueText: 표기 단위로 포맷된 환율 문자열 — 내부 값은 1단위당 원,
+   표시는 통화 관행(엔 100 기준 등)을 따르므로 포맷은 호출부가 소유 */
+function SourceRow({ name, valueText, dev, error, badge }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "6px 0", borderTop: `1px solid ${T.line}` }}>
       <span style={{ flex: 1, fontSize: 12.5, color: T.muted, fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -30,7 +29,7 @@ function SourceRow({ name, value, dev, error, badge }) {
         <span style={{ fontSize: 12, color: T.red }}>{error}</span>
       ) : (
         <>
-          <span style={{ fontSize: 13.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{rate100(value)}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{valueText}</span>
           <span style={{ fontSize: 11.5, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: devColor(Math.abs(dev)), width: 58, textAlign: "right" }}>
             {isNaN(dev) ? "" : (dev > 0 ? "+" : "") + dev.toFixed(2) + "%"}
           </span>
@@ -125,7 +124,9 @@ function PushBlock({ config }) {
 }
 
 export default function AlertTab({ rateAlert }) {
-  const { config, update, triggered, target, live, liveText, unitText } = rateAlert;
+  const { config, update, cur, triggered, target, live, liveText, unit, unitLabel, unitText } = rateAlert;
+  // 표기 단위 환율 문자열 — 내부 값은 1단위당 원 (엔은 100엔 기준으로 표시)
+  const fmtRate = (n) => (isNaN(n) ? "—" : (n * unit).toFixed(2) + "원");
 
   // ── 브라우저 알림 권한 ──
   const [notifPerm, setNotifPerm] = useState(
@@ -136,38 +137,43 @@ export default function AlertTab({ rateAlert }) {
     setNotifPerm(await Notification.requestPermission());
   };
 
-  // ── 이상 감지 ──
+  // ── 이상 감지 — 알림 통화를 따라간다 ──
   const [check, setCheck] = useState({ phase: "idle", rows: [], bank: null, live: null, at: null });
   const [myBankRate, setMyBankRate] = useState("");
 
-  const runCheck = async () => {
-    setCheck((c) => ({ ...c, phase: "loading" }));
+  const runCheck = useCallback(async (currency) => {
+    // 통화 전환 직후 옛 통화의 행이 남지 않도록 행까지 비운다
+    setCheck({ phase: "loading", rows: [], bank: null, live: null, at: null });
     try {
-      const [rows, bank, live] = await Promise.all([
-        fetchJpyKrwAll(),
-        fetch("/api/bank-rate", { signal: timeoutSignal(10_000) })
+      const [rows, bank, liveRaw] = await Promise.all([
+        fetchKrwAll(currency),
+        fetch(`/api/bank-rate?cur=${currency}`, { signal: timeoutSignal(10_000) })
           .then((r) => r.json())
           .catch(() => null),
         fetch("/api/live-rate", { signal: timeoutSignal(10_000) })
           .then((r) => (r.headers.get("content-type")?.includes("json") ? r.json() : null))
           .catch(() => null),
       ]);
+      // 장중 소스는 krwPer 맵 — 조회 시점 통화의 값만 뽑아 둔다
+      const liveKrw = liveRaw?.krwPer?.[currency] ?? (currency === "JPY" ? liveRaw?.jpyKrw : null);
+      const live = liveKrw ? { source: liveRaw.source, krw: liveKrw } : null;
       setCheck({ phase: "done", rows, bank, live, at: Date.now() });
     } catch {
       // 예기치 못한 실패로 "검사 중"에 잠기지 않도록 — 전 소스 실패로 처리
       setCheck({ phase: "done", rows: [], bank: null, live: null, at: Date.now() });
     }
-  };
-  useEffect(() => { runCheck(); }, []);
+  }, []);
+  // 통화가 바뀌면 내 은행 환율 입력도 단위 의미가 달라지므로 함께 비운다
+  useEffect(() => { setMyBankRate(""); runCheck(cur); }, [cur, runCheck]);
 
   const analysis = useMemo(() => {
     const ok = check.rows.filter((r) => r.ok);
-    const med = median(ok.map((r) => r.jpyKrw));
+    const med = median(ok.map((r) => r.krw));
     const rows = check.rows.map((r) =>
-      r.ok ? { ...r, dev: deviationPct(r.jpyKrw, med) } : r
+      r.ok ? { ...r, dev: deviationPct(r.krw, med) } : r
     );
-    const bankDev = check.bank?.jpyKrw ? deviationPct(check.bank.jpyKrw, med) : NaN;
-    const liveDev = check.live?.jpyKrw ? deviationPct(check.live.jpyKrw, med) : NaN;
+    const bankDev = check.bank?.krw ? deviationPct(check.bank.krw, med) : NaN;
+    const liveDev = check.live?.krw ? deviationPct(check.live.krw, med) : NaN;
     const devs = [
       ...rows.filter((r) => r.ok).map((r) => Math.abs(r.dev)),
       ...(isNaN(bankDev) ? [] : [Math.abs(bankDev)]),
@@ -179,11 +185,11 @@ export default function AlertTab({ rateAlert }) {
     return { rows, med, bankDev, liveDev, maxDev, level, okCount: ok.length };
   }, [check]);
 
-  // 입력은 100엔 기준이 기본 — 1엔당 원화가 100원을 넘을 일은 없으므로
-  // 100 미만이면 1엔 기준 입력으로 보고 자동 환산해 비교한다 (내부 비교값은 1엔당 원)
+  // 입력은 표기 단위 기준(엔은 100엔). 엔만 예외 인식: 1엔당 원화가 100원을
+  // 넘을 일은 없으므로 100 미만 입력은 1엔 기준으로 보고 자동 환산한다
   const myRaw = parseFloat(myBankRate);
-  const myPer1 = myRaw > 0 && myRaw < 100;
-  const my = myPer1 ? myRaw : myRaw / 100;
+  const myPer1 = cur === "JPY" && myRaw > 0 && myRaw < 100;
+  const my = myPer1 ? myRaw : myRaw / unit; // 내부 비교값은 1단위당 원
   const myDev = my > 0 ? deviationPct(my, analysis.med) : NaN;
 
   return (
@@ -244,8 +250,8 @@ export default function AlertTab({ rateAlert }) {
       {/* ── 3. 환율 이상 감지 ── */}
       <section style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지 (엔화)</div>
-          <button onClick={runCheck} disabled={check.phase === "loading"} style={chipBtn()}>
+          <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지 ({unitLabel}화)</div>
+          <button onClick={() => runCheck(cur)} disabled={check.phase === "loading"} style={chipBtn()}>
             {check.phase === "loading" ? "검사 중…" : "다시 검사"}
           </button>
         </div>
@@ -261,17 +267,17 @@ export default function AlertTab({ rateAlert }) {
                 <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: T.ink }}>
                   시장 기준 (중앙값 · 소스 {analysis.okCount}곳)
                 </span>
-                <span style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{rate100(analysis.med)}</span>
+                <span style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{fmtRate(analysis.med)}</span>
                 <span style={{ width: 58 }} />
               </div>
               {analysis.rows.map((r) => (
-                <SourceRow key={r.name} name={r.name} value={r.jpyKrw} dev={r.dev} error={r.ok ? null : "조회 실패"} />
+                <SourceRow key={r.name} name={r.name} valueText={fmtRate(r.krw)} dev={r.dev} error={r.ok ? null : "조회 실패"} />
               ))}
-              {check.live?.jpyKrw && (
-                <SourceRow name={check.live.source} badge="장중" value={check.live.jpyKrw} dev={analysis.liveDev} />
+              {check.live?.krw && (
+                <SourceRow name={check.live.source} badge="장중" valueText={fmtRate(check.live.krw)} dev={analysis.liveDev} />
               )}
-              {check.bank?.jpyKrw && (
-                <SourceRow name={check.bank.source} badge={check.bank.date} value={check.bank.jpyKrw} dev={analysis.bankDev} />
+              {check.bank?.krw && (
+                <SourceRow name={check.bank.source} badge={check.bank.date} valueText={fmtRate(check.bank.krw)} dev={analysis.bankDev} />
               )}
               {check.bank && check.bank.configured === false && (
                 <p style={{ fontSize: 11, color: T.muted, margin: "6px 0 0", lineHeight: 1.5 }}>
@@ -303,9 +309,9 @@ export default function AlertTab({ rateAlert }) {
 
         <div style={{ borderTop: `1px dashed ${T.line}`, paddingTop: 12 }}>
           <NumField
-            label="내 은행/앱에 표시된 환율 (선택)" suffix="원 / 100엔"
+            label="내 은행/앱에 표시된 환율 (선택)" suffix={`원 / ${unitText}`}
             value={myBankRate} onChange={setMyBankRate}
-            hint="토스·하나·신한 등 앱에 보이는 100엔 기준 환율을 입력하면 시장 기준과 비교합니다 (1엔 기준 입력도 자동 인식)"
+            hint={`토스·하나·신한 등 앱에 보이는 ${unitText} 기준 환율을 입력하면 시장 기준과 비교합니다${cur === "JPY" ? " (1엔 기준 입력도 자동 인식)" : ""}`}
           />
           {my > 0 && !isNaN(myDev) && (
             <div style={{
