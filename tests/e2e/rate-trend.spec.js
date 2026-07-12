@@ -27,7 +27,7 @@ test("R1. 엔 추이 — 최저·최고·현재가 100엔 기준으로 표시된
   await openTrend(page);
   await expect(page.getByText("최저 920원")).toBeVisible();
   await expect(page.getByText("최고 980원")).toBeVisible();
-  await expect(page.getByText(/현재 950원/)).toBeVisible();
+  await expect(page.getByText(/현재\(일간\) 950원/)).toBeVisible();
   await expect(page.getByRole("img", { name: /환율 추이/ })).toBeVisible();
 
   // 1년 백분위 배지 — 모킹 분포 [920, 980, 950]에서 현재 950은 중간(하위 50%)
@@ -58,4 +58,25 @@ test("R3. 기간 토글(90일)로 다시 조회해도 정상 렌더링된다", a
   await openTrend(page);
   await page.getByRole("button", { name: "90일" }).click();
   await expect(page.getByText("최고 980원")).toBeVisible();
+});
+
+test("R4. 실시간 환율이 있으면 기준선·요약·백분위가 실시간 기준으로 나온다", async ({ page }) => {
+  await blockExternal(page);
+  await page.route(/api\.frankfurter\.dev\/v1\/\d{4}-\d{2}-\d{2}\.\./, (r) => {
+    const base = new URL(r.request().url()).searchParams.get("base");
+    r.fulfill({ json: { base, rates: { "2026-07-06": { KRW: 9.2 }, "2026-07-07": { KRW: 9.8 }, "2026-07-08": { KRW: 9.5 } } } });
+  });
+  // 실시간 시세: 100엔 = 940원 — 일간 마지막(950원)과 다른 값으로 구분 검증
+  await page.route(/\/api\/live-rate/, (r) =>
+    r.fulfill({ json: { jpyKrw: 9.4, usdKrw: 1000, krwPer: { JPY: 9.4, USD: 1000 }, source: "장중 모킹" } })
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "알림" }).click();
+
+  // 요약 줄에 일간·실시간이 나란히, 차트 aria에도 실시간 포함
+  await expect(page.getByText(/현재\(일간\) 950원/)).toBeVisible();
+  await expect(page.getByText("실시간 940원")).toBeVisible();
+  await expect(page.getByRole("img", { name: /실시간 940원/ })).toBeVisible();
+  // 1년 백분위가 실시간 기준 — 분포 [920, 980, 950]에서 940은 하위 33%
+  await expect(page.getByText(/최근 1년 중 하위 33% — 싼 편입니다/)).toBeVisible();
 });

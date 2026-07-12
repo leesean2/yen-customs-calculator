@@ -38,4 +38,9 @@ describe("percentileVerdict / percentileText — 문구 경계", () => {
     expect(percentileText(50)).toBe("하위 50%");
     expect(percentileText(88)).toBe("상위 12%");
   });
+
+  it("분포 밖 극단값은 0%가 아닌 1%로 표기한다", () => {
+    expect(percentileText(0)).toBe("하위 1%");
+    expect(percentileText(100)).toBe("상위 1%");
+  });
 });

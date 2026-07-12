@@ -25,9 +25,10 @@ export function percentileVerdict(pct) {
   return { text: "매우 비싼 구간입니다", tone: "bad" };
 }
 
-/** 표기: 분포 어느 쪽에서 세는 게 직관적인지에 따라 하위/상위를 고른다 */
+/** 표기: 분포 어느 쪽에서 세는 게 직관적인지에 따라 하위/상위를 고른다.
+ *  분포 밖 극단값은 "하위 0%"가 아닌 "하위 1%"로 — 0%는 표기로서 어색하다 */
 export function percentileText(pct) {
   if (isNaN(pct)) return "";
   const p = Math.round(pct);
-  return p <= 50 ? `하위 ${p}%` : `상위 ${100 - p}%`;
+  return p <= 50 ? `하위 ${Math.max(p, 1)}%` : `상위 ${Math.max(100 - p, 1)}%`;
 }

@@ -18,8 +18,10 @@ const RANGES = [{ days: 30, label: "30일" }, { days: 90, label: "90일" }];
 const fmt = (n) => n.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
 const md = (iso) => `${+iso.slice(5, 7)}/${+iso.slice(8)}`; // "2026-07-08" → "7/8"
 
-/** target: 목표 환율(표기 단위 기준 원) — 표시 범위 안이면 기준선으로 그린다 */
-export default function RateTrendChart({ currency, target = 0 }) {
+/** target: 목표 환율(표기 단위 기준 원) — 표시 범위 안이면 기준선으로 그린다
+ *  live: 실시간 환율(표기 단위 기준 원, 없으면 0) — ECB 일간 시계열은 영업일
+ *  하루 지연이라, 지금 시세를 기준선·요약·백분위에 함께 보여준다 */
+export default function RateTrendChart({ currency, target = 0, live = 0 }) {
   const { rateUnit: unit, rateUnitLabel: unitLabel } =
     ORIGIN_COUNTRIES.find((c) => c.currency === currency) ?? ORIGIN_COUNTRIES[0];
   const unitText = `${unit === 1 ? "1" : unit}${unitLabel}`;
@@ -50,9 +52,9 @@ export default function RateTrendChart({ currency, target = 0 }) {
       .catch(() => alive && setYear({ status: "error", values: [] }));
     return () => { alive = false; };
   }, [currency, unit]);
-  // 비교 기준도 1년 시계열 자신의 마지막 값 — 차트(30/90일)와 스냅샷 시점이 어긋나지 않게
+  // 비교 기준은 실시간 시세 — 없으면 1년 시계열 자신의 마지막 값(ECB 일간)으로 폴백
   const yearPct = year.status === "done" && year.values.length >= 2
-    ? percentileRank(year.values, year.values[year.values.length - 1])
+    ? percentileRank(year.values, live > 0 ? live : year.values[year.values.length - 1])
     : NaN;
   const verdict = percentileVerdict(yearPct);
 
@@ -60,20 +62,24 @@ export default function RateTrendChart({ currency, target = 0 }) {
   const done = state.status === "done" && pts.length >= 2;
 
   // 스케일 — y는 최소·최대에 5% 여백을 줘 선이 프레임에 붙지 않게
-  let path = "", area = "", coords = [], minI = 0, maxI = 0, targetY = null;
+  // 실시간 시세는 항상 범위에 포함시켜 기준선이 잘리지 않게 한다 (일간 대비 편차는 작다)
+  let path = "", area = "", coords = [], minI = 0, maxI = 0, targetY = null, liveY = null;
   if (done) {
     const vs = pts.map((p) => p.v);
-    const lo = Math.min(...vs), hi = Math.max(...vs);
+    const lo = Math.min(...vs, ...(live > 0 ? [live] : []));
+    const hi = Math.max(...vs, ...(live > 0 ? [live] : []));
     const padV = (hi - lo || hi * 0.01) * 0.05;
     const y = (v) => PAD.top + (H - PAD.top - PAD.bottom) * (1 - (v - (lo - padV)) / ((hi + padV) - (lo - padV)));
     const x = (i) => PAD.left + (W - PAD.left - PAD.right) * (pts.length === 1 ? 0.5 : i / (pts.length - 1));
     coords = pts.map((p, i) => ({ cx: x(i), cy: y(p.v) }));
     path = coords.map((c, i) => `${i ? "L" : "M"}${c.cx.toFixed(1)},${c.cy.toFixed(1)}`).join(" ");
     area = `${path} L${coords[coords.length - 1].cx.toFixed(1)},${H - PAD.bottom} L${coords[0].cx.toFixed(1)},${H - PAD.bottom} Z`;
-    minI = vs.indexOf(lo);
-    maxI = vs.indexOf(hi);
-    // 목표선 — 표시 범위 안일 때만 (한참 벗어난 목표는 축을 짓눌러 추이가 안 보인다)
+    // 최저·최고는 시계열(vs) 기준 — 실시간을 포함한 lo·hi와 다를 수 있다
+    minI = vs.indexOf(Math.min(...vs));
+    maxI = vs.indexOf(Math.max(...vs));
+    // 목표선 — 표시 범위 안일 때만 (한참 벗어난 목표는 축을 짓누르지 않게 숨김)
     if (target > 0 && target >= lo - padV && target <= hi + padV) targetY = y(target);
+    if (live > 0) liveY = y(live);
   }
 
   // 호버 — 포인터 x 위치에서 가장 가까운 포인트 (터치 포함)
@@ -123,7 +129,7 @@ export default function RateTrendChart({ currency, target = 0 }) {
           <div ref={boxRef} style={{ position: "relative" }}
             onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
             <svg viewBox={`0 0 ${W} ${H}`} style={{ display: "block", width: "100%", height: "auto" }}
-              role="img" aria-label={`최근 ${days}일 원/${unitText} 환율 추이 — 최저 ${fmt(pts[minI].v)}원(${md(pts[minI].date)}), 최고 ${fmt(pts[maxI].v)}원(${md(pts[maxI].date)}), 현재 ${fmt(cur.v)}원`}>
+              role="img" aria-label={`최근 ${days}일 원/${unitText} 환율 추이 — 최저 ${fmt(pts[minI].v)}원(${md(pts[minI].date)}), 최고 ${fmt(pts[maxI].v)}원(${md(pts[maxI].date)}), 현재(일간) ${fmt(cur.v)}원${liveY != null ? `, 실시간 ${fmt(live)}원` : ""}`}>
               {/* 은은한 그리드 2줄 — 축보다 데이터가 앞서게 */}
               {[1 / 3, 2 / 3].map((f) => (
                 <line key={f} x1={PAD.left} x2={W - PAD.right}
@@ -138,6 +144,17 @@ export default function RateTrendChart({ currency, target = 0 }) {
                   <text x={W - PAD.right} y={targetY - 5} textAnchor="end"
                     style={{ fontSize: 10.5, fontWeight: 700, fill: "var(--c-muted)" }}>
                     목표 {fmt(target)}
+                  </text>
+                </>
+              )}
+              {/* 실시간 시세 기준선 — 일간 시계열의 '지금' 위치 (라벨은 목표선과 반대쪽) */}
+              {liveY != null && (
+                <>
+                  <line x1={PAD.left} x2={W - PAD.right} y1={liveY} y2={liveY}
+                    stroke="var(--c-red)" strokeWidth="1.2" strokeDasharray="2 3" />
+                  <text x={PAD.left} y={liveY - 5} textAnchor="start"
+                    style={{ fontSize: 10.5, fontWeight: 700, fill: "var(--c-red)" }}>
+                    실시간 {fmt(live)}
                   </text>
                 </>
               )}
@@ -178,7 +195,13 @@ export default function RateTrendChart({ currency, target = 0 }) {
             <span>·</span>
             <span>최고 <b style={{ color: T.ink }}>{fmt(pts[maxI].v)}원</b> ({md(pts[maxI].date)})</span>
             <span>·</span>
-            <span>현재 <b style={{ color: T.ink }}>{fmt(cur.v)}원</b>{cur.v <= pts[minI].v * 1.01 ? " — 최근 저점 부근" : ""}</span>
+            <span>현재(일간) <b style={{ color: T.ink }}>{fmt(cur.v)}원</b>{cur.v <= pts[minI].v * 1.01 ? " — 최근 저점 부근" : ""}</span>
+            {liveY != null && (
+              <>
+                <span>·</span>
+                <span>실시간 <b style={{ color: T.red }}>{fmt(live)}원</b></span>
+              </>
+            )}
           </div>
         </>
       )}
