@@ -1,16 +1,37 @@
-import { T, won, Disclosure } from "./ui.jsx";
+import { useEffect, useRef, useState } from "react";
+import { T, won, chipBtn, Disclosure } from "./ui.jsx";
 import { clearanceGuide, PCCC_URL, CARGO_TRACK_URL } from "./lib/clearance.js";
+import { buildDeclarationDraft } from "./lib/declaration.js";
+import { todayStr } from "./lib/orders.js";
 
 /* 결과 카드 하단 '통관 절차 안내' 토글 (직구 탭) — 판정(면세→목록통관 /
    과세·배제→일반 수입신고)에 맞는 단계별 절차를 보여준다. 처음 직구하는
-   사용자가 "세금이 나오면 그 다음에 뭘 해야 하나"에서 막히지 않게 한다. */
-export default function ClearanceGuide({ shop, country }) {
+   사용자가 "세금이 나오면 그 다음에 뭘 해야 하나"에서 막히지 않게 한다.
+   과세면 신고에 쓸 값 요약(수입신고 참고 정보)을 복사할 수 있다.
+   rate: 출발국 통화 1단위당 원 · hsList: 상품 순서대로 적용된 HS부호(없으면 null) */
+export default function ClearanceGuide({ shop, country, rate, hsList }) {
   const { route, steps } = clearanceGuide({
     taxed: shop.taxed,
     hasExcluded: shop.hasExcluded,
     deMinimisUsd: country.deMinimisUsd,
     taxText: won(shop.totalTax),
   });
+
+  const [copied, setCopied] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copyDraft = async () => {
+    const draft = buildDeclarationDraft({ shop, country, rate, hsList, date: todayStr() });
+    try {
+      await navigator.clipboard.writeText(draft);
+      setCopied(true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // 클립보드 API가 막힌 환경(비보안 컨텍스트 등) — 직접 복사하게 보여준다
+      window.prompt("아래 내용을 복사하세요", draft);
+    }
+  };
 
   return (
     <Disclosure label={`통관 절차 안내 — ${route}`}>
@@ -30,6 +51,16 @@ export default function ClearanceGuide({ shop, country }) {
             </div>
           </div>
         ))}
+        {shop.taxed && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0 2px", borderTop: `1px solid ${T.line}` }}>
+            <button onClick={copyDraft} style={chipBtn({ solid: copied })}>
+              {copied ? "✓ 복사됨" : "📋 수입신고 참고 정보 복사"}
+            </button>
+            <span style={{ fontSize: 10.5, color: T.muted, lineHeight: 1.5 }}>
+              품목·환율·예상 세액 요약 — 특송업체·관세사에 전달할 때 쓰세요
+            </span>
+          </div>
+        )}
         <p style={{ margin: "8px 0 2px", fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
           <a href={PCCC_URL} target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>개인통관고유부호 발급</a>
           {" · "}

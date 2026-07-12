@@ -30,6 +30,9 @@ test("R1. 엔 추이 — 최저·최고·현재가 100엔 기준으로 표시된
   await expect(page.getByText(/현재 950원/)).toBeVisible();
   await expect(page.getByRole("img", { name: /환율 추이/ })).toBeVisible();
 
+  // 1년 백분위 배지 — 모킹 분포 [920, 980, 950]에서 현재 950은 중간(하위 50%)
+  await expect(page.getByText(/최근 1년 중 하위 50% — 중간 수준입니다/)).toBeVisible();
+
   // 호버 크로스헤어 툴팁 — 차트 중앙은 두 번째 포인트(7/7 · 980원)
   // hover()는 화면 밖 요소를 스크롤해 온 뒤 중앙에 포인터를 올린다
   await page.getByRole("img", { name: /환율 추이/ }).hover();

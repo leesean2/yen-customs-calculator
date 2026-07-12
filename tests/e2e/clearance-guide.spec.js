@@ -24,6 +24,29 @@ test("과세 결과 — 일반 수입신고 안내에 예상 세액이 들어간
   await expect(page.getByText("150달러를 넘어 수입신고 대상")).toBeVisible();
 });
 
+test("과세 결과 — 수입신고 참고 정보 복사에 품목·환율·세액이 담긴다", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await openShop(page);
+  await page.getByLabel("상품 가격").fill("20000"); // $200 → 과세
+  await page.getByRole("button", { name: "통관 절차 안내 — 일반 수입신고" }).click();
+  await page.getByRole("button", { name: "수입신고 참고 정보 복사" }).click();
+  await expect(page.getByRole("button", { name: "✓ 복사됨" })).toBeVisible();
+
+  const draft = await page.evaluate(() => navigator.clipboard.readText());
+  expect(draft).toContain("출발국: 일본 (통화 JPY)");
+  expect(draft).toContain("적용 환율: 1,000원/100엔");
+  expect(draft).toContain("1. 피규어 · 게임 · 취미용품 · ¥20,000 · 관세율 8%");
+  // 과세가격 200,000 → 관세 16,000 + 부가세 21,600 = 37,600
+  expect(draft).toContain("과세가격(물품+국제운임): 200,000원");
+  expect(draft).toContain("예상 세액 합계: 37,600원");
+});
+
+test("면세 결과에는 복사 버튼이 없다 — 신고 절차 자체가 없다", async ({ page }) => {
+  await openShop(page); // 기본 ¥15,000 = $150 면세
+  await page.getByRole("button", { name: "통관 절차 안내 — 목록통관" }).click();
+  await expect(page.getByRole("button", { name: "수입신고 참고 정보 복사" })).toBeHidden();
+});
+
 test("목록통관 배제 품목 — 신고 사유가 금액이 아닌 품목으로 안내된다", async ({ page }) => {
   await openShop(page);
   await page.getByLabel("상품 가격").fill("100"); // $1이어도 배제 품목은 과세

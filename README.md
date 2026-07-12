@@ -26,11 +26,13 @@ src/
   AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
   OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약
   SavedCalcsCard.jsx    계산 저장함 — 계산 스냅샷을 이름 붙여 보관·복원
+  SavedCompareBlock.jsx 저장함 비교 보기 — 선택 2~3건 나란히 + 합산과세 시나리오
   JsonBackupRow.jsx     JSON 내보내기/가져오기 줄 (구매 이력·저장함 공용)
   CategoryOptions.jsx   품목 <option> 목록 (직구·직구여행·국내비교 공용)
   HsRate.jsx            HS부호 정확 관세율 조회·적용 (상품 행별 선택 기능)
   ShipEstimate.jsx      배대지 배송비 추정 (무게·부피무게 → 대표 요율)
-  ClearanceGuide.jsx    통관 절차 안내 — 판정별 목록통관/일반 수입신고 단계
+  ClearanceGuide.jsx    통관 절차 안내 — 판정별 목록통관/일반 수입신고 단계 + 신고 정보 복사
+  PaymentCompare.jsx    결제 수단별 최종 비용 비교 — 해외 결제 수수료, 내 요율 저장
   CalcBreakdown.jsx     '계산 근거 펼쳐보기' 토글 (직구·여행자 공용)
   ui.jsx                테마(T→CSS 변수)·포매터·NumField/Row/Stamp/panel 공용
   index.css             라이트/다크 팔레트(prefers-color-scheme)를 CSS 변수로 정의
@@ -39,7 +41,9 @@ src/
   data/shipping.js      배대지 대표 요율(출발국별) + SHIPPING_RATES_VERIFIED(요율 기준일)
   lib/customs.js        직구·여행 세금 계산(탭 공용), lib/rateSources.js 다중 소스 교차 검증
   lib/shipping.js       배대지 배송비 추정(부피무게·0.5kg 올림), lib/clearance.js 통관 절차 분기
+  lib/declaration.js    수입신고 참고 정보 초안, lib/payment.js 결제 수수료 계산·내 요율 저장
   lib/orders.js         구매 이력 저장소, lib/savedCalcs.js 계산 저장함, lib/share.js 계산 결과 URL 공유
+  lib/snapshot.js       공유 쿼리 재계산(저장함 비교 보기), lib/percentile.js 환율 백분위
   lib/push.js           웹 푸시 클라이언트, lib/net.js fetch 타임아웃, lib/monitor.js 클라이언트 진단
   hooks/useExchangeRates.js  환율 로딩·캐시(통화→원 맵), useRateAlert.js 목표 알림, useOrders.js 합산과세 판정
 tests/unit/             vitest 단위 테스트 — 세금 계산·이력 백업 순수 함수 (npm run test:unit)
@@ -88,6 +92,8 @@ override 모드로 전환되고 "실시간 환율로 되돌리기" 버튼이 뜬
 - **환율 추이 차트** — 알림 탭에서 선택한 통화의 30/90일 시계열(ECB 일간,
   `fetchKrwSeries`)을 라인 차트로 보여준다(`src/RateTrend.jsx`) — 최저·최고 직접
   라벨과 호버 크로스헤어 툴팁, 목표가를 정할 때 현재가 싼 편인지 참고용.
+  차트 아래에 **최근 1년 백분위 배지**(`lib/percentile.js`, 동률 중간 순위) —
+  "지금 환율은 최근 1년 중 하위 n% — 싼 편입니다"를 색조(싼/중간/비싼)와 함께 판정.
 - **표기** — `symbol`/`locale`(금액), `rateUnit`/`rateUnitLabel`(환율 — 엔은 국내 관행상
   100엔 기준 "원/100엔", 그 외 1단위), `short`(문장 속 국가명 "일본 내 배송비").
 
@@ -159,9 +165,11 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
   10분마다 + 탭 복귀 시 재조회, 도달하면 상단 배너(모든 탭에서 표시) + 브라우저 알림 1회.
   판정은 수동 입력값이 아닌 실시간 API 환율 기준.
 - **이상 감지** — 클라이언트 소스 3곳(er-api, frankfurter, currency-api) + 실시간 시세(`/api/live-rate`) +
-  수출입은행 고시(`/api/bank-rate`, 키 설정 시)를 중앙값과 교차 검증. 최대 편차 1% 미만 정상 /
-  1~3% 주의 / 3% 이상 경고. 은행 앱에 표시된 환율을 직접 입력하면 시장 기준과 비교해
-  토스뱅크 '반값 엔화' 같은 괴리를 경고 — **1엔·100엔 기준 모두 자동 인식**(100 이상이면 ÷100).
+  수출입은행 고시(`/api/bank-rate?cur=`, 키 설정 시 — 위안화는 고시 코드 CNH)를 중앙값과 교차 검증.
+  **알림 통화를 따라 JPY·USD·EUR·CNY 모두 지원**(통화 전환 시 재조회, 내 환율 입력도 초기화).
+  최대 편차 1% 미만 정상 / 1~3% 주의 / 3% 이상 경고. 은행 앱에 표시된 환율을 직접 입력하면
+  시장 기준과 비교해 토스뱅크 '반값 엔화' 같은 괴리를 경고 — 엔은 **1엔·100엔 기준 모두
+  자동 인식**(100 이상이면 ÷100).
 
 ## 웹 푸시 (백그라운드 알림)
 
@@ -219,10 +227,20 @@ id 중복은 기존 기록을 유지한다(`exportOrders`/`parseImportedOrders`/
   만료 없음). 저장 본체는 공유 링크와 같은 쿼리 스냅샷이라, '열기'는 그 쿼리로 이동해
   공유 링크 복원 경로를 그대로 재사용한다 — 저장 시점의 입력값·환율이 그대로 재현된다.
   구매 이력과 같은 JSON 내보내기/가져오기(공용 `JsonBackupRow.jsx`)로 백업·복원할 수 있다.
+  2건 이상이면 체크로 2~3건을 골라 **비교 보기**(`SavedCompareBlock.jsx`) — 저장 스냅샷을
+  페이지 이동 없이 재계산(`lib/snapshot.js`)해 나란히 보여주고, 같은 출발국이면 '한 주문으로
+  합산과세될 때'와 대조해 따로/합산의 세금 차이를 판정 문구로 앞세운다.
 - **통관 절차 안내** — 결과 카드의 접이식 안내(`lib/clearance.js`)가 판정에 따라
   목록통관(면세: 수입신고 생략) 또는 일반 수입신고(과세·배제 품목: 신고→세액 납부→반출)
   단계를 보여준다. 예상 세액이 납부 단계에 연동되고, 개인통관고유부호 발급·화물진행정보
-  조회 링크를 함께 준다.
+  조회 링크를 함께 준다. 과세면 **수입신고 참고 정보 복사**(`lib/declaration.js`) —
+  품목(HS부호 포함)·적용 환율·과세가격·세목별 세액 요약을 특송업체·관세사에 전달할
+  텍스트로 클립보드에 담는다.
+- **결제 수단별 최종 비용 비교** — 결과 카드의 접이식 표(`PaymentCompare.jsx`).
+  해외 결제 수수료(일반 신용카드 1.4%·해외겸용 체크 0.7%·트래블카드 0% 대표치)를
+  **외화 결제 금액**(물품가+현지 배송의 원화 환산)에만 얹어 수단별 총액을 비교한다 —
+  국제 배송비(원화 청구)·세금(원화 납부)은 수수료 대상이 아니다. 요율은 셀에서 고쳐
+  내 카드 조건으로 저장(localStorage, `lib/payment.js`), 최저 수단에 '최저' 표시.
 
 ## PWA · 오프라인
 

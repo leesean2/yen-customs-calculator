@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { T, chipBtn, linkBtn, panel } from "./ui.jsx";
 import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchKrwSeries } from "./lib/fx.js";
+import { percentileRank, percentileVerdict, percentileText } from "./lib/percentile.js";
 
 /* ──────────────────────────────────────────────
    환율 추이 차트 (알림 탭) — 목표 환율을 정할 때 "지금이 싼 편인지"를
@@ -38,6 +39,22 @@ export default function RateTrendChart({ currency, target = 0 }) {
       .catch(() => alive && setState({ status: "error", points: [] }));
     return () => { alive = false; };
   }, [currency, days, unit, attempt]);
+
+  // 최근 1년 백분위 — "지금이 싼 편인가"의 근거. 기간 토글과 무관하게 통화당 1회 조회
+  const [year, setYear] = useState({ status: "loading", values: [] });
+  useEffect(() => {
+    let alive = true;
+    setYear({ status: "loading", values: [] });
+    fetchKrwSeries(currency, 365)
+      .then((p) => alive && setYear({ status: "done", values: p.map((x) => x.rate * unit) }))
+      .catch(() => alive && setYear({ status: "error", values: [] }));
+    return () => { alive = false; };
+  }, [currency, unit]);
+  // 비교 기준도 1년 시계열 자신의 마지막 값 — 차트(30/90일)와 스냅샷 시점이 어긋나지 않게
+  const yearPct = year.status === "done" && year.values.length >= 2
+    ? percentileRank(year.values, year.values[year.values.length - 1])
+    : NaN;
+  const verdict = percentileVerdict(yearPct);
 
   const pts = state.points;
   const done = state.status === "done" && pts.length >= 2;
@@ -164,6 +181,15 @@ export default function RateTrendChart({ currency, target = 0 }) {
             <span>현재 <b style={{ color: T.ink }}>{fmt(cur.v)}원</b>{cur.v <= pts[minI].v * 1.01 ? " — 최근 저점 부근" : ""}</span>
           </div>
         </>
+      )}
+      {verdict && (
+        <p style={{
+          margin: "7px 0 2px", fontSize: 11.5, fontWeight: 700, lineHeight: 1.6,
+          color: verdict.tone === "good" ? T.green : verdict.tone === "bad" ? T.red : T.muted,
+        }}>
+          지금 {unitText} 환율은 최근 1년 중 {percentileText(yearPct)} — {verdict.text}
+          <span style={{ fontWeight: 500, color: T.muted }}> (ECB 일간 기준, 목표가를 정할 때 참고하세요)</span>
+        </p>
       )}
     </section>
   );

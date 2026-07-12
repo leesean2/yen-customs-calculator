@@ -15,6 +15,7 @@ import OrderHistoryCard from "./OrderHistoryCard.jsx";
 import SavedCalcsCard from "./SavedCalcsCard.jsx";
 import CalcBreakdown from "./CalcBreakdown.jsx";
 import ClearanceGuide from "./ClearanceGuide.jsx";
+import PaymentCompare from "./PaymentCompare.jsx";
 
 /* 계산 근거 단계별 수식 — 화면 수치와 같은 값(shop.*)을 그대로 대입해 보여준다
    country: 출발국(data/countries.js) · or: 출발국 통화 1단위당 원화 환율
@@ -331,7 +332,9 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
 
         <CalcBreakdown steps={breakdownSteps} />
 
-        <ClearanceGuide shop={shop} country={country} />
+        <ClearanceGuide shop={shop} country={country} rate={or} hsList={items.map((it) => it.hsRate?.hs ?? null)} />
+
+        <PaymentCompare foreignKrw={shop.goodsKrw} finalKrw={shop.final} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
           <button onClick={copyShareLink} style={{
