@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { T, won, usd, money, rateText, NumField, TextField, SelectField, Row, Stamp, panel } from "./ui.jsx";
 import { CATEGORIES, LUXURY_SCT_BASE } from "./data/categories.js";
 import { calcCartImportCost } from "./lib/customs.js";
@@ -7,6 +7,7 @@ import { buildShareUrl } from "./lib/share.js";
 import useOrders from "./hooks/useOrders.js";
 import useOriginCountry from "./hooks/useOriginCountry.js";
 import useCustomsRate from "./hooks/useCustomsRate.js";
+import useCopy from "./hooks/useCopy.js";
 import OriginSelectField from "./OriginSelect.jsx";
 import HsRateField from "./HsRate.jsx";
 import ShipEstimateField from "./ShipEstimate.jsx";
@@ -189,21 +190,8 @@ export default function ShopTab({ jr, ur, krwPer, shared }) {
       originRate: isAppCurrency ? null : or,
     });
 
-  const [copied, setCopied] = useState(false);
-  const copyTimer = useRef(null);
-  useEffect(() => () => clearTimeout(copyTimer.current), []);
-  const copyShareLink = async () => {
-    const url = makeShareUrl();
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 2500);
-    } catch {
-      // 클립보드 API가 막힌 환경(비보안 컨텍스트 등) — 직접 복사하게 보여준다
-      window.prompt("아래 링크를 복사하세요", url);
-    }
-  };
+  const { copied, copy } = useCopy("아래 링크를 복사하세요");
+  const copyShareLink = () => copy(makeShareUrl());
 
   return (
     <>

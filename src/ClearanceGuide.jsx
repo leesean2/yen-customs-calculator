@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { T, won, chipBtn, Disclosure } from "./ui.jsx";
+import { T, won, chipBtn, subtleBox, Disclosure } from "./ui.jsx";
 import { clearanceGuide, PCCC_URL, CARGO_TRACK_URL } from "./lib/clearance.js";
 import { buildDeclarationDraft } from "./lib/declaration.js";
 import { todayStr } from "./lib/orders.js";
+import useCopy from "./hooks/useCopy.js";
 
 /* 결과 카드 하단 '통관 절차 안내' 토글 (직구 탭) — 판정(면세→목록통관 /
    과세·배제→일반 수입신고)에 맞는 단계별 절차를 보여준다. 처음 직구하는
@@ -17,25 +17,13 @@ export default function ClearanceGuide({ shop, country, rate, hsList }) {
     taxText: won(shop.totalTax),
   });
 
-  const [copied, setCopied] = useState(false);
-  const timer = useRef(null);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const copyDraft = async () => {
-    const draft = buildDeclarationDraft({ shop, country, rate, hsList, date: todayStr() });
-    try {
-      await navigator.clipboard.writeText(draft);
-      setCopied(true);
-      clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), 2500);
-    } catch {
-      // 클립보드 API가 막힌 환경(비보안 컨텍스트 등) — 직접 복사하게 보여준다
-      window.prompt("아래 내용을 복사하세요", draft);
-    }
-  };
+  const { copied, copy } = useCopy();
+  const copyDraft = () =>
+    copy(buildDeclarationDraft({ shop, country, rate, hsList, date: todayStr() }));
 
   return (
     <Disclosure label={`통관 절차 안내 — ${route}`}>
-      <div style={{ marginTop: 10, background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 10, padding: "4px 12px 10px" }}>
+      <div style={{ marginTop: 10, ...subtleBox("4px 12px 10px") }}>
         {steps.map((s, i) => (
           <div key={s.title} style={{ display: "flex", gap: 10, padding: "9px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
             <span aria-hidden="true" style={{

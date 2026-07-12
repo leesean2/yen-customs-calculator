@@ -1,4 +1,4 @@
-import { T, Disclosure } from "./ui.jsx";
+import { T, subtleBox, Disclosure } from "./ui.jsx";
 
 /* 결과 카드 하단 '계산 근거 펼쳐보기' 토글 (직구·여행자 탭 공용)
    세액이 어떤 수식으로 나왔는지 입력값이 대입된 단계별 수식을 보여준다 —
@@ -9,7 +9,7 @@ export default function CalcBreakdown({ steps }) {
 
   return (
     <Disclosure label={(open) => (open ? "계산 근거 접기" : "계산 근거 펼쳐보기")}>
-      <div style={{ marginTop: 10, background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 10, padding: "4px 12px 8px" }}>
+      <div style={{ marginTop: 10, ...subtleBox("4px 12px 8px") }}>
         {items.map((s, i) => (
           <div key={i} style={{ padding: "8px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: T.indigo, marginBottom: 2 }}>{s.label}</div>

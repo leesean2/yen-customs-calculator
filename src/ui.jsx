@@ -160,6 +160,14 @@ export const panel = (borderColor = T.line) => ({
   borderRadius: 14,
 });
 
+/* 카드 안 보조 패널(옅은 배경 상자) — 접이식 본문·비교 표 등이 공유 */
+export const subtleBox = (padding) => ({
+  background: T.subtle,
+  border: `1px solid ${T.line}`,
+  borderRadius: 10,
+  padding,
+});
+
 // SelectField 내부 전용 — 셀렉트가 필요하면 SelectField를 쓴다
 const selectStyle = {
   // fontSize 16: iOS Safari 포커스 확대 방지

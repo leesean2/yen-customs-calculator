@@ -1,4 +1,4 @@
-import { T, won, money } from "./ui.jsx";
+import { T, won, money, subtleBox } from "./ui.jsx";
 import { computeSnapshot, computeCombined } from "./lib/snapshot.js";
 
 /* 저장함 비교 보기 (SavedCalcsCard 하단) — 선택한 저장 항목 2~3건을 저장 시점
@@ -31,7 +31,7 @@ export default function SavedCompareBlock({ entries }) {
   ];
 
   return (
-    <div style={{ marginTop: 8, background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 10, padding: "8px 10px" }}>
+    <div style={{ marginTop: 8, ...subtleBox("8px 10px") }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>

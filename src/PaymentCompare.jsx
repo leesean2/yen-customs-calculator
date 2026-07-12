@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { T, won, linkBtn, Disclosure } from "./ui.jsx";
+import { T, won, linkBtn, subtleBox, Disclosure } from "./ui.jsx";
 import { PAYMENT_METHODS, loadPaymentRates, savePaymentRates, paymentRows } from "./lib/payment.js";
 
 /* 결제 수단별 최종 비용 비교 (직구 탭 결과 카드 접이식) — 해외 결제 수수료를
@@ -24,7 +24,7 @@ export default function PaymentCompare({ foreignKrw, finalKrw }) {
 
   return (
     <Disclosure label="결제 수단별 최종 비용 비교">
-      <div style={{ marginTop: 10, background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 10, padding: "8px 10px" }}>
+      <div style={{ marginTop: 10, ...subtleBox("8px 10px") }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -49,6 +49,7 @@ export default function PaymentCompare({ foreignKrw, finalKrw }) {
                       value={editing[r.id] ?? String(r.pct)}
                       onChange={(e) => setEditing((s) => ({ ...s, [r.id]: e.target.value }))}
                       onBlur={(e) => commit(r.id, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                       style={{
                         width: 52, border: `1px solid ${T.line}`, borderRadius: 6, background: T.field,
                         padding: "3px 4px", fontSize: 12, fontWeight: 600, color: T.ink, outline: "none",

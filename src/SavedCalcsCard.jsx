@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { T, chipBtn, panel } from "./ui.jsx";
 import {
   loadSavedCalcs, saveSavedCalcs, newSavedCalc, MAX_SAVED_CALCS,
@@ -7,6 +7,7 @@ import {
 import { todayStr } from "./lib/orders.js";
 import JsonBackupRow from "./JsonBackupRow.jsx";
 import SavedCompareBlock from "./SavedCompareBlock.jsx";
+import useFlash from "./hooks/useFlash.js";
 
 const MAX_COMPARE = 3;
 
@@ -17,11 +18,9 @@ const MAX_COMPARE = 3;
 export default function SavedCalcsCard({ makeSnapshot }) {
   const [saved, setSaved] = useState(loadSavedCalcs);
   const [name, setName] = useState("");
-  const [justSaved, setJustSaved] = useState(false);
+  const [justSaved, flashSaved] = useFlash();
   // 비교 선택 — 2건 이상 고르면 아래 비교 블록이 열린다 (최대 MAX_COMPARE건)
   const [selected, setSelected] = useState([]);
-  const timerRef = useRef(null);
-  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const persist = (list) => {
     setSaved(list);
@@ -42,9 +41,7 @@ export default function SavedCalcsCard({ makeSnapshot }) {
     const { query, summary } = makeSnapshot();
     persist([newSavedCalc({ name, query, summary }), ...saved]);
     setName("");
-    setJustSaved(true);
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setJustSaved(false), 2500);
+    flashSaved();
   };
 
   const open = (s) => {

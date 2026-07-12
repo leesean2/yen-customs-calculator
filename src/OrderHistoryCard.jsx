@@ -1,20 +1,15 @@
-import { useEffect, useRef, useState } from "react";
 import { T, money, won, panel } from "./ui.jsx";
 import { todayStr, exportOrders, parseImportedOrders } from "./lib/orders.js";
 import { getCountry } from "./data/countries.js";
 import JsonBackupRow from "./JsonBackupRow.jsx";
+import useFlash from "./hooks/useFlash.js";
 
 /* 구매 이력 카드 — 기록 버튼 + 최근 목록 + 이번 달 지출 요약 + JSON 백업/복원 (직구 탭 하단) */
 export default function OrderHistoryCard({ orders, canRecord, onRecord, onRemove, onImport }) {
-  const [justSaved, setJustSaved] = useState(false);
-  const timerRef = useRef(null);
-  useEffect(() => () => clearTimeout(timerRef.current), []);
-
+  const [justSaved, flashSaved] = useFlash();
   const record = () => {
     onRecord();
-    setJustSaved(true);
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setJustSaved(false), 2500);
+    flashSaved();
   };
 
   // 이번 달 지출 요약 — 세금은 taxKrw가 기록된 주문(신규 형식)만 합산한다
