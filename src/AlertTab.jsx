@@ -4,7 +4,6 @@ import { ORIGIN_COUNTRIES } from "./data/countries.js";
 import { fetchKrwAll, median, deviationPct } from "./lib/rateSources.js";
 import { timeoutSignal } from "./lib/net.js";
 import { pushSupported, getPushSubscription, subscribePush, unsubscribePush } from "./lib/push.js";
-import RateTrendChart from "./RateTrend.jsx";
 
 /* ──────────────────────────────────────────────
    환율 알림 · 이상 감지 탭
@@ -124,7 +123,7 @@ function PushBlock({ config }) {
 }
 
 export default function AlertTab({ rateAlert }) {
-  const { config, update, cur, triggered, target, live, liveUnit, liveText, unit, unitLabel, unitText } = rateAlert;
+  const { config, update, cur, triggered, target, live, liveText, unit, unitLabel, unitText } = rateAlert;
   // 표기 단위 환율 문자열 — 내부 값은 1단위당 원 (엔은 100엔 기준으로 표시)
   const fmtRate = (n) => (isNaN(n) ? "—" : (n * unit).toFixed(2) + "원");
 
@@ -244,10 +243,10 @@ export default function AlertTab({ rateAlert }) {
         <PushBlock config={config} />
       </section>
 
-      {/* ── 2. 환율 추이 — 목표가를 정할 때 현재가 싼 편인지 참고 (목표선·실시간 병기) ── */}
-      <RateTrendChart currency={cur} target={target > 0 ? target : 0} live={liveUnit > 0 ? liveUnit : 0} />
+      {/* 환율 추이 차트는 전역(App의 TrendPanel — 환율 설정 아래)에 있고,
+          통화·목표선이 이 탭의 설정을 따라간다 */}
 
-      {/* ── 3. 환율 이상 감지 ── */}
+      {/* ── 2. 환율 이상 감지 ── */}
       <section style={sectionStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ ...titleStyle, flex: 1 }}>⚠️ 환율 이상 감지 ({unitLabel}화)</div>

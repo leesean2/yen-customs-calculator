@@ -9,6 +9,7 @@ import TravelTab from "./TravelTab.jsx";
 import RouteCompareTab from "./RouteCompareTab.jsx";
 import CompareTab from "./CompareTab.jsx";
 import AlertTab from "./AlertTab.jsx";
+import TrendPanel from "./TrendPanel.jsx";
 
 /* ──────────────────────────────────────────────
    엔화 직구 · 여행 관부가세 계산기 (실시간 환율)
@@ -156,6 +157,9 @@ export default function App() {
             <NumField label="USD → KRW" suffix="원 / 1달러" value={usdRate} onChange={editRate(setUsdRate)} hint="면세한도(달러) 환산에 사용" />
           </div>
         </section>
+
+        {/* 환율 추이 차트 — 탭 밖(전역)이라 어느 탭에서든 실시간 환율과 함께 본다 */}
+        <TrendPanel rateAlert={rateAlert} />
 
         {/* 세율 데이터 신선도 배너 — 법령 개정 가능성을 알린다 */}
         {rateDataStale && (
