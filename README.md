@@ -23,8 +23,9 @@ src/
   TravelTab.jsx         여행자 휴대품 (품목별 간이세율 + 술·담배·향수 별도 면세한도, 여행국 선택)
   RouteCompareTab.jsx   직구 vs 여행 반입 비교 (출발국 선택 · 면세 $150/$200 vs $800)
   CompareTab.jsx        해외(출발국) vs 국내 가격 비교
-  AlertTab.jsx          환율 알림 · 이상 감지 · 푸시 구독
-  TrendPanel.jsx        환율 추이 차트 전역 접이식 래퍼 (환율 설정 아래, 모든 탭 공통)
+  AlertTab.jsx          목표 환율 알림 설정 · 푸시 구독
+  TrendPanel.jsx        환율 추이·이상 감지 전역 접이식 래퍼 (환율 설정 아래, 모든 탭 공통)
+  AnomalyCheck.jsx      환율 이상 감지 — 다중 소스 교차 검증 + 내 은행 환율 비교
   OrderHistoryCard.jsx  구매 이력 카드 + 이번 달 지출 요약
   SavedCalcsCard.jsx    계산 저장함 — 계산 스냅샷을 이름 붙여 보관·복원
   SavedCompareBlock.jsx 저장함 비교 보기 — 선택 2~3건 나란히 + 합산과세 시나리오
@@ -170,7 +171,9 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 - **목표 환율 알림** — 목표가(원/100엔)와 조건(이하/이상)을 localStorage에 저장. 탭이 열려 있는 동안
   10분마다 + 탭 복귀 시 재조회, 도달하면 상단 배너(모든 탭에서 표시) + 브라우저 알림 1회.
   판정은 수동 입력값이 아닌 실시간 API 환율 기준.
-- **이상 감지** — 클라이언트 소스 3곳(er-api, frankfurter, currency-api) + 실시간 시세(`/api/live-rate`) +
+- **이상 감지** — 추이 차트와 같은 전역 접이식 패널(`AnomalyCheck.jsx`, TrendPanel 안)이라
+  어느 탭에서든 실시간 환율·추이와 함께 본다. 클라이언트 소스 3곳(er-api, frankfurter,
+  currency-api) + 실시간 시세(`/api/live-rate`) +
   수출입은행 고시(`/api/bank-rate?cur=`, 키 설정 시 — 위안화는 고시 코드 CNH)를 중앙값과 교차 검증.
   **알림 통화를 따라 JPY·USD·EUR·CNY 모두 지원**(통화 전환 시 재조회, 내 환율 입력도 초기화).
   최대 편차 1% 미만 정상 / 1~3% 주의 / 3% 이상 경고. 은행 앱에 표시된 환율을 직접 입력하면

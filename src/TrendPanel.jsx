@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { T } from "./ui.jsx";
 import RateTrendChart from "./RateTrend.jsx";
+import AnomalyCheck from "./AnomalyCheck.jsx";
 
-/* 환율 추이 차트의 전역 접이식 래퍼 — 환율 설정 바로 아래(모든 탭 공통)에서
-   실시간 환율과 추이를 같이 본다. 통화·목표선은 알림 설정(rateAlert)을 그대로
-   따라, 알림 탭에서 통화를 바꾸면 이 차트도 함께 바뀐다.
-   열림 상태는 localStorage에 저장 — 한 번 펼치면 재방문에도 유지된다. */
+/* 환율 추이 차트·이상 감지의 전역 접이식 래퍼 — 환율 설정 바로 아래(모든 탭
+   공통)에서 실시간 환율과 같이 본다. 통화·목표선은 알림 설정(rateAlert)을
+   그대로 따라, 알림 탭에서 통화를 바꾸면 여기도 함께 바뀐다.
+   열림 상태는 localStorage에 저장 — 한 번 펼치면 재방문에도 유지된다.
+   이상 감지는 열릴 때 마운트되며 그때 소스 조회가 시작된다(닫힘 상태 비용 0). */
 const OPEN_KEY = "yen-calc:trend-open:v1";
 
 export default function TrendPanel({ rateAlert }) {
@@ -38,7 +40,7 @@ export default function TrendPanel({ rateAlert }) {
         >
           ▸
         </span>
-        📈 환율 추이 차트 {open ? "접기" : "보기"}
+        📈 환율 추이 · 이상 감지 {open ? "접기" : "보기"}
         <span style={{ fontWeight: 600, color: T.muted, fontSize: 11 }}>
           (원/{unitText} · 실시간 병기{open ? "" : " · 어느 탭에서든"})
         </span>
@@ -46,6 +48,7 @@ export default function TrendPanel({ rateAlert }) {
       {open && (
         <div style={{ marginTop: 8 }}>
           <RateTrendChart currency={cur} target={target > 0 ? target : 0} live={liveUnit > 0 ? liveUnit : 0} />
+          <AnomalyCheck rateAlert={rateAlert} />
         </div>
       )}
     </div>

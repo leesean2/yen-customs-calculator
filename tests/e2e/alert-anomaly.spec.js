@@ -4,6 +4,7 @@ import { blockExternal } from "./helpers.js";
 /* ──────────────────────────────────────────────
    환율 이상 감지 다통화 E2E — 교차 검증 소스 3곳 + 수출입은행 + 장중 소스를
    모킹해, 알림 통화를 따라 소스 행·표기 단위·내 은행 환율 비교가 바뀌는지 검증.
+   이상 감지는 전역 패널(환율 설정 아래 접이식 — 추이 차트와 함께)에 있다.
 
    모킹 환율(1단위당 원): JPY 10 · USD 1,000 · EUR 1,250 · CNY 200
    frankfurter +0.5% · currency-api -0.5% · 수출입은행 -0.2% → 최대 편차 0.5% (정상)
@@ -50,7 +51,8 @@ async function openAnomaly(page) {
   );
 
   await page.goto("/");
-  await page.getByRole("button", { name: "알림" }).click();
+  // 이상 감지는 전역 패널 — 토글을 열면 마운트되며 조회가 시작된다
+  await page.getByRole("button", { name: /환율 추이 · 이상 감지 보기/ }).click();
 }
 
 test("N1. 기본(엔) — 소스 행이 100엔 기준으로 나오고 최대 편차 0.5%는 정상", async ({ page }) => {
@@ -73,6 +75,8 @@ test("N2. 통화를 달러로 바꾸면 소스·은행 고시·내 환율 비교
   await openAnomaly(page);
   await page.getByLabel("내 은행/앱에 표시된 환율 (선택)").fill("950"); // 엔 기준 입력
 
+  // 통화 선택은 알림 탭 설정 — 바꾸면 전역 이상 감지도 따라간다
+  await page.getByRole("button", { name: "알림" }).click();
   await page.getByLabel("통화").selectOption("USD");
   await expect(page.getByText("환율 이상 감지 (달러화)")).toBeVisible();
   // 통화 전환 시 단위가 다른 입력은 비워진다
