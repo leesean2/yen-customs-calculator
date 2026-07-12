@@ -42,12 +42,12 @@ export default function AnomalyCheck({ rateAlert }) {
   const fmtRate = (n) => (isNaN(n) ? "—" : (n * unit).toFixed(2) + "원");
 
   // ── 이상 감지 — 알림 통화를 따라간다 ──
-  const [check, setCheck] = useState({ phase: "idle", rows: [], bank: null, live: null, at: null });
+  const [check, setCheck] = useState({ phase: "idle", rows: [], bank: null, live: null });
   const [myBankRate, setMyBankRate] = useState("");
 
   const runCheck = useCallback(async (currency) => {
     // 통화 전환 직후 옛 통화의 행이 남지 않도록 행까지 비운다
-    setCheck({ phase: "loading", rows: [], bank: null, live: null, at: null });
+    setCheck({ phase: "loading", rows: [], bank: null, live: null });
     try {
       const [rows, bank, liveRaw] = await Promise.all([
         fetchKrwAll(currency),
@@ -61,10 +61,10 @@ export default function AnomalyCheck({ rateAlert }) {
       // 장중 소스는 krwPer 맵 — 조회 시점 통화의 값만 뽑아 둔다
       const liveKrw = liveRaw?.krwPer?.[currency] ?? (currency === "JPY" ? liveRaw?.jpyKrw : null);
       const live = liveKrw ? { source: liveRaw.source, krw: liveKrw } : null;
-      setCheck({ phase: "done", rows, bank, live, at: Date.now() });
+      setCheck({ phase: "done", rows, bank, live });
     } catch {
       // 예기치 못한 실패로 "검사 중"에 잠기지 않도록 — 전 소스 실패로 처리
-      setCheck({ phase: "done", rows: [], bank: null, live: null, at: Date.now() });
+      setCheck({ phase: "done", rows: [], bank: null, live: null });
     }
   }, []);
   // 통화가 바뀌면 내 은행 환율 입력도 단위 의미가 달라지므로 함께 비운다

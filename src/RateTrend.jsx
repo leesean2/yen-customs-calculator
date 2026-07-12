@@ -18,6 +18,21 @@ const RANGES = [{ days: 30, label: "30일" }, { days: 90, label: "90일" }];
 const fmt = (n) => n.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
 const md = (iso) => `${+iso.slice(5, 7)}/${+iso.slice(8)}`; // "2026-07-08" → "7/8"
 
+/** 시계열 조회 상태 훅 — 차트(30/90일)와 1년 백분위가 같은 로딩 골격을 공유.
+ *  points의 v는 표기 단위 원. attempt가 오르면 재조회('다시 시도' 공용). */
+function useKrwSeries(currency, days, unit, attempt) {
+  const [state, setState] = useState({ status: "loading", points: [] });
+  useEffect(() => {
+    let alive = true;
+    setState({ status: "loading", points: [] });
+    fetchKrwSeries(currency, days)
+      .then((pts) => alive && setState({ status: "done", points: pts.map((p) => ({ date: p.date, v: p.rate * unit })) }))
+      .catch(() => alive && setState({ status: "error", points: [] }));
+    return () => { alive = false; };
+  }, [currency, days, unit, attempt]);
+  return state;
+}
+
 /** target: 목표 환율(표기 단위 기준 원) — 표시 범위 안이면 기준선으로 그린다
  *  live: 실시간 환율(표기 단위 기준 원, 없으면 0) — ECB 일간 시계열은 영업일
  *  하루 지연이라, 지금 시세를 기준선·요약·백분위에 함께 보여준다 */
@@ -27,34 +42,19 @@ export default function RateTrendChart({ currency, target = 0, live = 0 }) {
   const unitText = `${unit === 1 ? "1" : unit}${unitLabel}`;
 
   const [days, setDays] = useState(30);
-  const [state, setState] = useState({ status: "loading", points: [] });
   const [hover, setHover] = useState(null); // 포인트 인덱스
   const [attempt, setAttempt] = useState(0);
   const boxRef = useRef(null);
 
-  useEffect(() => {
-    let alive = true;
-    setState((s) => ({ ...s, status: "loading" }));
-    setHover(null);
-    fetchKrwSeries(currency, days)
-      .then((pts) => alive && setState({ status: "done", points: pts.map((p) => ({ date: p.date, v: p.rate * unit })) }))
-      .catch(() => alive && setState({ status: "error", points: [] }));
-    return () => { alive = false; };
-  }, [currency, days, unit, attempt]);
-
+  const state = useKrwSeries(currency, days, unit, attempt);
   // 최근 1년 백분위 — "지금이 싼 편인가"의 근거. 기간 토글과 무관하게 통화당 1회 조회
-  const [year, setYear] = useState({ status: "loading", values: [] });
-  useEffect(() => {
-    let alive = true;
-    setYear({ status: "loading", values: [] });
-    fetchKrwSeries(currency, 365)
-      .then((p) => alive && setYear({ status: "done", values: p.map((x) => x.rate * unit) }))
-      .catch(() => alive && setYear({ status: "error", values: [] }));
-    return () => { alive = false; };
-  }, [currency, unit]);
+  const year = useKrwSeries(currency, 365, unit, attempt);
+  useEffect(() => setHover(null), [currency, days, attempt]); // 재조회 중 옛 좌표 참조 방지
+
   // 비교 기준은 실시간 시세 — 없으면 1년 시계열 자신의 마지막 값(ECB 일간)으로 폴백
-  const yearPct = year.status === "done" && year.values.length >= 2
-    ? percentileRank(year.values, live > 0 ? live : year.values[year.values.length - 1])
+  const yearVals = year.points.map((p) => p.v);
+  const yearPct = year.status === "done" && yearVals.length >= 2
+    ? percentileRank(yearVals, live > 0 ? live : yearVals[yearVals.length - 1])
     : NaN;
   const verdict = percentileVerdict(yearPct);
 
