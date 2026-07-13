@@ -1,4 +1,4 @@
-import { T, won, chipBtn, subtleBox, Disclosure } from "./ui.jsx";
+import { T, won, chipBtn, subtleBox, Disclosure, StepList } from "./ui.jsx";
 import { clearanceGuide, PCCC_URL, CARGO_TRACK_URL } from "./lib/clearance.js";
 import { buildDeclarationDraft } from "./lib/declaration.js";
 import { todayStr } from "./lib/orders.js";
@@ -24,21 +24,7 @@ export default function ClearanceGuide({ shop, country, rate, hsList }) {
   return (
     <Disclosure label={`통관 절차 안내 — ${route}`}>
       <div style={{ marginTop: 10, ...subtleBox("4px 12px 10px") }}>
-        {steps.map((s, i) => (
-          <div key={s.title} style={{ display: "flex", gap: 10, padding: "9px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
-            <span aria-hidden="true" style={{
-              width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 1,
-              background: T.indigoSoft, color: T.indigo, fontSize: 11.5, fontWeight: 800,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              {i + 1}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{s.title}</div>
-              <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6, wordBreak: "keep-all" }}>{s.desc}</div>
-            </div>
-          </div>
-        ))}
+        <StepList items={steps.map((s) => ({ key: s.title, ...s }))} />
         {shop.taxed && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0 2px", borderTop: `1px solid ${T.line}` }}>
             <button onClick={copyDraft} style={chipBtn({ solid: copied })}>

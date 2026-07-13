@@ -139,6 +139,30 @@ export function Disclosure({ label, children }) {
   );
 }
 
+/* 번호 매겨진 단계 목록 — 통관 절차 안내·해외 배송 통관조회 공용
+   items: [{ key?, title, desc? }] — desc는 노드 가능(생략하면 제목만) */
+export function StepList({ items }) {
+  return (
+    <>
+      {items.map((s, i) => (
+        <div key={s.key ?? i} style={{ display: "flex", gap: 10, padding: "9px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
+          <span aria-hidden="true" style={{
+            width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 1,
+            background: T.indigoSoft, color: T.indigo, fontSize: 11.5, fontWeight: 800,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {i + 1}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{s.title}</div>
+            {s.desc && <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6, wordBreak: "keep-all" }}>{s.desc}</div>}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 /* 체크박스 + 라벨 (자진신고·알림 활성화 등 탭 공용) */
 export function CheckField({ label, checked, onChange }) {
   return (

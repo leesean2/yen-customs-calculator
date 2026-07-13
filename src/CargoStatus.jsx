@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { T, chipBtn, panel } from "./ui.jsx";
+import { T, chipBtn, panel, StepList } from "./ui.jsx";
 import { PCCC_URL, CARGO_TRACK_URL } from "./lib/clearance.js";
 import { timeoutSignal } from "./lib/net.js";
 
@@ -105,27 +105,13 @@ export default function CargoStatus() {
                 </p>
               )}
               <div style={{ background: T.subtle, border: `1px solid ${T.line}`, borderRadius: 10, padding: "4px 12px 8px" }}>
-                {st.data.steps.map((s, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, padding: "9px 0", borderTop: i ? `1px solid ${T.line}` : "none" }}>
-                    <span aria-hidden="true" style={{
-                      width: 20, height: 20, borderRadius: "50%", flexShrink: 0, marginTop: 1,
-                      background: T.indigoSoft, color: T.indigo, fontSize: 11.5, fontWeight: 800,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {i + 1}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{s.status}</div>
-                      {(s.code || s.date) && (
-                        <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
-                          {s.code && <>코드 {s.code}</>}
-                          {s.code && s.date && " · "}
-                          {s.date && s.date}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                <StepList
+                  items={st.data.steps.map((s, i) => ({
+                    key: i,
+                    title: s.status,
+                    desc: (s.code || s.date) && [s.code && `코드 ${s.code}`, s.date].filter(Boolean).join(" · "),
+                  }))}
+                />
               </div>
             </div>
           )}
