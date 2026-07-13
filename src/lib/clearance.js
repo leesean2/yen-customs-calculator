@@ -53,7 +53,7 @@ export function clearanceGuide({ taxed, hasExcluded, deMinimisUsd, taxText }) {
       },
       {
         title: "통관 완료 · 국내 배송",
-        desc: "납부가 확인되면 반출되어 국내 택배로 배송됩니다. 진행 상태는 UNI-PASS 화물진행정보에서 운송장번호로 조회할 수 있습니다.",
+        desc: "납부가 확인되면 반출되어 국내 택배로 배송됩니다. 진행 상태는 화물관리번호로 이 앱의 '해외 배송 통관조회'나 UNI-PASS 화물진행정보에서 조회할 수 있습니다.",
       },
     ],
   };

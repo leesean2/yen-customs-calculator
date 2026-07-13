@@ -145,6 +145,7 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
 | `RAKUTEN_APP_ID` | [webservice.rakuten.co.jp](https://webservice.rakuten.co.jp/) | 라쿠텐 검색 | 미설정 (외부 링크로 대체) |
 | `KOREAEXIM_API_KEY` | [koreaexim.go.kr 오픈API](https://www.koreaexim.go.kr/ir/HPHKIR019M01) | 수출입은행 고시환율 비교 | 설정됨 |
 | `UNIPASS_API_KEY` | [unipass.customs.go.kr 오픈API](https://unipass.customs.go.kr/csp/openapiInfo.do) → "관세환율정보" | 과세환율(실제 세액 기준) 병기 + 면세 판정 괴리 경고 | 미설정 (표시 생략) |
+| `UNIPASS_CARGO_API_KEY` | [unipass.customs.go.kr 오픈API](https://unipass.customs.go.kr/csp/openapiInfo.do) → "화물통관진행정보" | 화물관리번호로 통관 진행 단계 조회 | 미설정 (표시 생략) |
 | `SENTRY_DSN` | Sentry 프로젝트 → Client Keys (DSN) | 클라이언트 진단 Sentry 전달(선택) | 미설정 (콘솔 로깅만) |
 
 > ⚠️ Windows PowerShell에서 `"값" | vercel env add ...`로 등록하면 값 앞에 BOM(U+FEFF)이 붙어
@@ -179,6 +180,15 @@ Sentry 같은 외부 계정 없이, **개인정보 없는 기술 진단만** Ver
   최대 편차 1% 미만 정상 / 1~3% 주의 / 3% 이상 경고. 은행 앱에 표시된 환율을 직접 입력하면
   시장 기준과 비교해 토스뱅크 '반값 엔화' 같은 괴리를 경고 — 엔은 **1엔·100엔 기준 모두
   자동 인식**(100 이상이면 ÷100).
+
+## 해외 배송 통관조회
+
+환율 설정 아래 전역 접이식 패널(`CargoStatus.jsx`, TrendPanel과 같은 위치·같은 방식 —
+어느 탭에서든 열 수 있고 열림 상태는 localStorage에 저장). 특송업체·판매자가 알려주는
+화물관리번호("통관번호")를 입력하면 `/api/cargo-status`(UNI-PASS 화물통관진행정보,
+`UNIPASS_CARGO_API_KEY` 필요)가 지금 통관이 어느 단계인지(적재화물목록제출→수입신고수리→
+반출 등) 순서대로 보여준다. 계산 결과와 무관한 독립 조회라 특정 탭에 묶지 않았다.
+번호를 모르면 UNI-PASS에서 운송장번호로 직접 찾는 외부 링크도 함께 제공한다.
 
 ## 웹 푸시 (백그라운드 알림)
 

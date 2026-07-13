@@ -10,6 +10,7 @@ import RouteCompareTab from "./RouteCompareTab.jsx";
 import CompareTab from "./CompareTab.jsx";
 import AlertTab from "./AlertTab.jsx";
 import TrendPanel from "./TrendPanel.jsx";
+import CargoStatus from "./CargoStatus.jsx";
 
 /* ──────────────────────────────────────────────
    엔화 직구 · 여행 관부가세 계산기 (실시간 환율)
@@ -160,6 +161,9 @@ export default function App() {
 
         {/* 환율 추이 차트 — 탭 밖(전역)이라 어느 탭에서든 실시간 환율과 함께 본다 */}
         <TrendPanel rateAlert={rateAlert} />
+
+        {/* 해외 배송 통관조회 — 계산과 무관한 독립 조회라 전역에 둔다 */}
+        <CargoStatus />
 
         {/* 세율 데이터 신선도 배너 — 법령 개정 가능성을 알린다 */}
         {rateDataStale && (
