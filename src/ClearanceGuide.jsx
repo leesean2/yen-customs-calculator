@@ -40,7 +40,7 @@ export default function ClearanceGuide({ shop, country, rate, hsList }) {
           {" · "}
           <a href={CARGO_TRACK_URL} target="_blank" rel="noreferrer" style={{ color: T.indigo, fontWeight: 700 }}>화물진행정보 조회 (UNI-PASS)</a>
           <br />
-          화물관리번호가 있다면 환율 설정 아래 &lsquo;해외 배송 통관조회&rsquo;에서 바로 진행 단계를 볼 수 있습니다.
+          화물관리번호가 있다면 &lsquo;통관조회&rsquo; 탭에서 바로 진행 단계를 볼 수 있습니다.
           <br />
           실제 절차·수수료는 특송업체와 세관 판단에 따라 다를 수 있습니다.
         </p>

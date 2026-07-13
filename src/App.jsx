@@ -65,6 +65,7 @@ const TABS = [
   { id: "route", label: "직구·여행" },
   { id: "compare", label: "국내비교" },
   { id: "alert", label: "알림" },
+  { id: "cargo", label: "통관조회" },
 ];
 
 export default function App() {
@@ -162,9 +163,6 @@ export default function App() {
         {/* 환율 추이 차트 — 탭 밖(전역)이라 어느 탭에서든 실시간 환율과 함께 본다 */}
         <TrendPanel rateAlert={rateAlert} />
 
-        {/* 해외 배송 통관조회 — 계산과 무관한 독립 조회라 전역에 둔다 */}
-        <CargoStatus />
-
         {/* 세율 데이터 신선도 배너 — 법령 개정 가능성을 알린다 */}
         {rateDataStale && (
           <div style={{
@@ -214,6 +212,7 @@ export default function App() {
         {tabPanel("route", <RouteCompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("compare", <CompareTab jr={jr} ur={ur} krwPer={rates?.krwPer} />)}
         {tabPanel("alert", <AlertTab rateAlert={rateAlert} />)}
+        {tabPanel("cargo", <CargoStatus />)}
 
         <footer style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${T.line}`, fontSize: 11, color: T.muted, textAlign: "center" }}>
           본 계산기는 참고용이며 법적 효력이 없습니다 · 세율 기준일: {RATES_LAST_VERIFIED}
